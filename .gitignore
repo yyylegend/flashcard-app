@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# Database (contains your personal data, don't upload)
+backend/flashcards.db
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/_unused_backup/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Claude Code
+.claude/
