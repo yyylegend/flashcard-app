@@ -9,8 +9,9 @@ env/
 # Database (contains your personal data, don't upload)
 backend/flashcards.db
 
-# API Keys
+# API Keys & env
 backend/.env
+frontend/.env
 .env
 
 # Frontend
