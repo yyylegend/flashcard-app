@@ -3,8 +3,18 @@
 运行: pip install flask flask-cors && python app.py
 """
 import json, os, sqlite3
-from flask import Flask, request, jsonify
+import urllib.request
+from flask import Flask, request, jsonify, Response, stream_with_context
 from flask_cors import CORS
+
+# Load .env
+_env = os.path.join(os.path.dirname(__file__), ".env")
+if os.path.exists(_env):
+    for line in open(_env, encoding="utf-8"):
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            k, v = line.split("=", 1)
+            os.environ.setdefault(k.strip(), v.strip())
 
 app = Flask(__name__, static_folder="static", static_url_path="")
 CORS(app)
@@ -283,6 +293,29 @@ def reset_all():
     conn.commit()
     conn.close()
     return jsonify({"ok": True})
+
+@app.route("/api/ai", methods=["POST"])
+def ai_proxy():
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key or api_key == "你的Key填这里":
+        return jsonify({"error": "未配置 ANTHROPIC_API_KEY"}), 500
+    body = request.get_data()
+    req = urllib.request.Request(
+        "https://api.anthropic.com/v1/messages",
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req) as resp:
+            return Response(resp.read(), status=resp.status, content_type="application/json")
+    except urllib.error.HTTPError as e:
+        return Response(e.read(), status=e.code, content_type="application/json")
+
 
 @app.route("/")
 def index():

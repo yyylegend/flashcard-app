@@ -183,7 +183,7 @@ function AIGenModal({ onClose, onAdd }) {
     setLoading(true); setError(""); setProgress("AI正在生成...");
     try {
       const sys = `Generate ${count} interview flashcards about "${topic}". Rules: 1.Questions in conversational Chinese. 2.Answers concise ≤150 words, use \`\`\`python for code. 3.Create 3-5 categories. 4.JSON array only:[{"category":"...","q":"...","a":"...","tips":"..."}] 5.Complete the array. 6.All Chinese.`;
-      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      const resp = await fetch("http://localhost:5000/api/ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 8000, system: sys, messages: [{ role: "user", content: `生成「${topic}」的${count}道面试题` }] }),
@@ -262,7 +262,7 @@ function ImportModal({ onClose, onImport }) {
     try {
       const n = text.length > 10000 ? 20 : text.length > 5000 ? 15 : 12;
       const sys = `Extract ${n} interview questions. Conversational Chinese, ≤150 word answers with \`\`\`python, 3-6 categories, JSON array only, complete it.`;
-      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      const resp = await fetch("http://localhost:5000/api/ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 8000, system: sys, messages: [{ role: "user", content: `Topic:${topic || "未指定"}\n\n${text.slice(0, 15000)}` }] }),
