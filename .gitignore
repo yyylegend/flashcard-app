@@ -24,3 +24,6 @@ Thumbs.db
 
 # Claude Code
 .claude/
+
+# Custom powershell script
+scripts/*.ps1
