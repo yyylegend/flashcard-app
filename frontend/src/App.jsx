@@ -121,6 +121,22 @@ function Ans({ text }) {
   );
 }
 
+/* ── Confirm Dialog ── */
+function ConfirmDialog({ message, onConfirm, onCancel }) {
+  return (
+    <div style={overlay}>
+      <div style={overlayBg} onClick={onCancel} />
+      <div style={{ ...modal, maxWidth: 360, padding: 28 }}>
+        <p style={{ margin: "0 0 24px", fontSize: 15, color: "var(--text-color,#111)", lineHeight: 1.6 }}>{message}</p>
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button onClick={onCancel} style={{ padding: "8px 20px", borderRadius: 8, border: "1px solid #ddd", background: "#f5f5f5", cursor: "pointer", fontSize: 14 }}>取消</button>
+          <button onClick={onConfirm} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "#ef4444", color: "#fff", cursor: "pointer", fontSize: 14, fontWeight: 600 }}>确认删除</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Edit / Add Card Modal ── */
 function CardModal({ onClose, onSave, categories, initial }) {
   const isEdit = !!initial;
@@ -371,6 +387,7 @@ export default function App() {
   const [authed, setAuthed] = useState(!!getToken());
   const [authUser, setAuthUser] = useState("");
   const [showLogin, setShowLogin] = useState(false);
+  const [dlg, setDlg] = useState(null); // {message, onConfirm}
 
   // ── Load from backend on mount ──
   useEffect(() => {
@@ -545,6 +562,7 @@ export default function App() {
   return (
     <div style={{ fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif', minHeight: "100vh", background: "#f8f8fa" }}>
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} onLogin={u => { setAuthed(true); setAuthUser(u); }} />}
+      {dlg && <ConfirmDialog message={dlg.message} onConfirm={() => { dlg.onConfirm(); setDlg(null); }} onCancel={() => setDlg(null)} />}
       {showImp && <ImportModal onClose={() => setShowImp(false)} onImport={impDeck} />}
       {showCard !== null && (
         <CardModal
@@ -603,7 +621,7 @@ export default function App() {
                   <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.name}</span>
                   <span style={{ fontSize: 11, opacity: .6 }}>{d.cards.length}</span>
                   {i > 0 && (
-                    <span onClick={e => { e.stopPropagation(); if (confirm(`删除「${d.name}」？`)) rmDeck(i); }}
+                    <span onClick={e => { e.stopPropagation(); setDlg({ message: `删除「${d.name}」？`, onConfirm: () => rmDeck(i) }); }}
                       style={{ fontSize: 13, opacity: .5, cursor: "pointer", marginLeft: 2 }}>×</span>
                   )}
                 </div>
@@ -667,7 +685,7 @@ export default function App() {
 
           {/* Reset */}
           {mode === 0 && (
-            <button onClick={() => { if (confirm("重置所有成绩？（不会删除卡片）")) resetData(); }}
+            <button onClick={() => { setDlg({ message: "重置所有成绩？（不会删除卡片）", onConfirm: resetData }); }}
               style={{ background: "none", border: "none", color: "#ccc", fontSize: 11, cursor: "pointer", textAlign: "left", padding: "4px 0" }}>
               重置成绩
             </button>
@@ -715,7 +733,7 @@ export default function App() {
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                       {mode === 0 && authed && <>
                         <button onClick={() => setShowCard(card)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#aaa", padding: 2 }} title="编辑">✏️</button>
-                        <button onClick={() => { if (confirm("删除这张卡片？")) handleDeleteCard(card.id); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#aaa", padding: 2 }} title="删除">🗑️</button>
+                        <button onClick={() => { setDlg({ message: "删除这张卡片？", onConfirm: () => handleDeleteCard(card.id) }); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#aaa", padding: 2 }} title="删除">🗑️</button>
                       </>}
                       <span style={{ color: "#ddd", fontSize: 13, fontWeight: 600 }}>#{idx + 1}</span>
                     </div>
