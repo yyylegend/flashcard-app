@@ -56,14 +56,14 @@ export async function deleteCard(cardId) {
 }
 
 export async function fetchScores() {
-  const r = await fetch(`${BASE}/scores`);
+  const r = await fetch(`${BASE}/scores`, { headers: authHeaders() });
   return r.json();
 }
 
 export async function saveScore(cardId, result) {
   await fetch(`${BASE}/scores`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders(),
     body: JSON.stringify({ card_id: cardId, result }),
   });
 }

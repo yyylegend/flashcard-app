@@ -8,6 +8,11 @@ env/
 
 # Database (contains your personal data, don't upload)
 backend/flashcards.db
+backend/flashcards_backup.db*
+
+# Tests (local only)
+backend/test_app.py
+frontend/src/test/
 
 # API Keys & env
 backend/.env
@@ -30,5 +35,5 @@ Thumbs.db
 # Claude Code
 .claude/
 
-# Custom powershell script
-scripts/*.ps1
+# Scripts (local only)
+scripts/

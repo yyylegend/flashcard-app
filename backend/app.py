@@ -4,7 +4,7 @@
 """
 import json, os, sqlite3, hashlib, hmac, base64, time
 import urllib.request
-from flask import Flask, request, jsonify, Response
+from flask import Flask, request, jsonify, Response, g
 from flask_cors import CORS
 
 # Load .env
@@ -56,11 +56,18 @@ def require_auth(f):
     from functools import wraps
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
-        if not token or not jwt_decode(token):
+        token = request.headers.get("Authorization", "").replace("Bearer ", "", 1).strip()
+        payload = jwt_decode(token) if token else None
+        if not payload:
             return jsonify({"error": "未登录"}), 401
+        g.username = payload.get("sub", "")
         return f(*args, **kwargs)
     return decorated
+
+def get_username():
+    token = request.headers.get("Authorization", "").replace("Bearer ", "", 1).strip()
+    payload = jwt_decode(token) if token else None
+    return payload.get("sub", "") if payload else None
 
 # ── Database Setup ──
 def get_db():
@@ -88,9 +95,11 @@ def init_db():
             FOREIGN KEY (deck_id) REFERENCES decks(id) ON DELETE CASCADE
         );
         CREATE TABLE IF NOT EXISTS scores (
-            card_id TEXT PRIMARY KEY,
+            username TEXT NOT NULL,
+            card_id TEXT NOT NULL,
             result TEXT NOT NULL CHECK(result IN ('ok','fail')),
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (username, card_id)
         );
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -351,18 +360,24 @@ def delete_card(card_id):
 
 @app.route("/api/scores", methods=["GET"])
 def get_scores():
+    username = get_username()
+    if not username:
+        return jsonify({})
     conn = get_db()
-    rows = conn.execute("SELECT card_id, result FROM scores").fetchall()
+    rows = conn.execute("SELECT card_id, result FROM scores WHERE username = ?", (username,)).fetchall()
     conn.close()
     return jsonify({r["card_id"]: r["result"] for r in rows})
 
 @app.route("/api/scores", methods=["POST"])
 def update_score():
+    username = get_username()
+    if not username:
+        return jsonify({"error": "未登录"}), 401
     data = request.json
     conn = get_db()
     conn.execute(
-        "INSERT OR REPLACE INTO scores (card_id, result, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
-        (data["card_id"], data["result"])
+        "INSERT OR REPLACE INTO scores (username, card_id, result, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)",
+        (username, data["card_id"], data["result"])
     )
     conn.commit()
     conn.close()
@@ -372,7 +387,7 @@ def update_score():
 @require_auth
 def reset_all():
     conn = get_db()
-    conn.execute("DELETE FROM scores")
+    conn.execute("DELETE FROM scores WHERE username = ?", (g.username,))
     conn.execute("DELETE FROM cards")
     conn.execute("DELETE FROM decks")
     seed_default_data(conn)

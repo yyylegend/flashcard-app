@@ -399,14 +399,18 @@ export default function App() {
           cards: (dk.cards || []).map(c => ({ ...c, category: c.category || "未分类", tips: c.tips || "" })),
         }));
         setDecks(normalized);
-        // rawScores: [{card_id, result}]
-        const scoreMap = {};
-        (rawScores || []).forEach(s => { scoreMap[s.card_id] = s.result; });
-        setScores(scoreMap);
+        setScores(rawScores && typeof rawScores === "object" && !Array.isArray(rawScores) ? rawScores : {});
       } catch (e) { console.error("加载失败:", e); }
       setLoaded(true);
     })();
   }, []);
+
+  const reloadScores = async () => {
+    try {
+      const raw = await fetchScores();
+      setScores(raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {});
+    } catch (e) { setScores({}); }
+  };
 
   // ── Derived ──
   const dk = decks[di] || decks[0];
@@ -561,7 +565,7 @@ export default function App() {
   // ── Main layout ──
   return (
     <div style={{ fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif', minHeight: "100vh", background: "#f8f8fa" }}>
-      {showLogin && <LoginModal onClose={() => setShowLogin(false)} onLogin={u => { setAuthed(true); setAuthUser(u); }} />}
+      {showLogin && <LoginModal onClose={() => setShowLogin(false)} onLogin={u => { setAuthed(true); setAuthUser(u); reloadScores(); }} />}
       {dlg && <ConfirmDialog message={dlg.message} onConfirm={() => { dlg.onConfirm(); setDlg(null); }} onCancel={() => setDlg(null)} />}
       {showImp && <ImportModal onClose={() => setShowImp(false)} onImport={impDeck} />}
       {showCard !== null && (
@@ -599,7 +603,7 @@ export default function App() {
           {authed
             ? <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 8, paddingLeft: 8, borderLeft: "1px solid #e5e7eb" }}>
                 <span style={{ fontSize: 13, color: "#6366f1", fontWeight: 600 }}>👤 {authUser}</span>
-                <button onClick={() => { clearToken(); setAuthed(false); setAuthUser(""); }} style={{ ...btnG, fontSize: 12, padding: "4px 10px" }}>退出</button>
+                <button onClick={() => { clearToken(); setAuthed(false); setAuthUser(""); setScores({}); }} style={{ ...btnG, fontSize: 12, padding: "4px 10px" }}>退出</button>
               </div>
             : <button onClick={() => setShowLogin(true)} style={{ ...btnG, marginLeft: 8, borderColor: "#6366f1", color: "#6366f1" }}>🔐 登录</button>
           }
