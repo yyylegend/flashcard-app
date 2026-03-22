@@ -3,6 +3,7 @@ import {
   fetchDecks, createDeck, deleteDeck,
   createCard, updateCard, deleteCard as apiDeleteCard,
   fetchScores, saveScore, resetAll,
+  login, getToken, setToken, clearToken,
 } from "./api";
 
 /* ── Category colors ── */
@@ -158,7 +159,7 @@ function CardModal({ onClose, onSave, categories, initial }) {
         <label style={{ ...lb, marginTop: 12 }}>答案 *（用```包裹代码块）</label>
         <textarea value={a} onChange={e => setA(e.target.value)}
           placeholder={"答案要点...\n\n```python\nprint('代码放这里')\n```"}
-          style={{ ...inp, height: 140, resize: "vertical", fontFamily: "Menlo,monospace", fontSize: 13 }} />
+          style={{ ...inp, height: 140, resize: "vertical", fontSize: 13 }} />
         <label style={{ ...lb, marginTop: 12 }}>💡 面试小贴士</label>
         <input value={t} onChange={e => setT(e.target.value)} placeholder="一句话提示" style={inp} />
         <button onClick={submit} disabled={!q.trim() || !a.trim()}
@@ -226,6 +227,46 @@ function AIGenModal({ onClose, onAdd }) {
         {loading ? "⏳ 生成中..." : "🎯 生成题目"}
       </button>
     </div></div>
+  );
+}
+
+/* ── Login Modal ── */
+function LoginModal({ onClose, onLogin }) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const submit = async () => {
+    if (!username.trim() || !password) return;
+    setLoading(true); setError("");
+    const res = await login(username.trim(), password);
+    setLoading(false);
+    if (res.token) { setToken(res.token); onLogin(res.username); onClose(); }
+    else setError(res.error || "登录失败");
+  };
+
+  return (
+    <div style={overlay}>
+      <div style={overlayBg} onClick={onClose} />
+      <div style={{ ...modal, maxWidth: 360 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: "#111" }}>🔐 登录</h2>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#999" }}>×</button>
+        </div>
+        <label style={lb}>账号</label>
+        <input value={username} onChange={e => setUsername(e.target.value)} placeholder="用户名" style={{ ...inp, marginBottom: 12 }} />
+        <label style={lb}>密码</label>
+        <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="密码"
+          style={{ ...inp, marginBottom: 16 }}
+          onKeyDown={e => e.key === "Enter" && submit()} />
+        {error && <div style={{ ...errSt, marginBottom: 12 }}>{error}</div>}
+        <button onClick={submit} disabled={loading || !username.trim() || !password}
+          style={{ ...btnP, width: "100%", padding: 12, fontSize: 15, opacity: (!username.trim() || !password || loading) ? .5 : 1 }}>
+          {loading ? "登录中..." : "登录"}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -327,6 +368,9 @@ export default function App() {
   const [showAI, setShowAI] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
+  const [authed, setAuthed] = useState(!!getToken());
+  const [authUser, setAuthUser] = useState("");
+  const [showLogin, setShowLogin] = useState(false);
 
   // ── Load from backend on mount ──
   useEffect(() => {
@@ -500,6 +544,7 @@ export default function App() {
   // ── Main layout ──
   return (
     <div style={{ fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif', minHeight: "100vh", background: "#f8f8fa" }}>
+      {showLogin && <LoginModal onClose={() => setShowLogin(false)} onLogin={u => { setAuthed(true); setAuthUser(u); }} />}
       {showImp && <ImportModal onClose={() => setShowImp(false)} onImport={impDeck} />}
       {showCard !== null && (
         <CardModal
@@ -520,16 +565,26 @@ export default function App() {
             {saveMsg && <span style={{ marginLeft: 8, color: "#10b981", fontSize: 12 }}>{saveMsg}</span>}
           </span>
         </div>
-        <div style={{ display: "flex", gap: 6 }}>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           {mode === 1
             ? <button onClick={() => setMode(0)} style={btnG}>← 退出测试</button>
             : <>
-              <button onClick={() => setShowCard("add")} style={{ ...btnG, borderStyle: "dashed" }} title="手动添加">➕</button>
-              <button onClick={() => setShowAI(true)} style={{ ...btnG, borderStyle: "dashed" }} title="AI生成">🤖</button>
-              <button onClick={() => setShowImp(true)} style={{ ...btnG, borderStyle: "dashed" }} title="导入文档">📥</button>
+              {authed && <>
+                <button onClick={() => setShowCard("add")} style={{ ...btnG, borderStyle: "dashed" }} title="手动添加">➕</button>
+                <button onClick={() => setShowAI(true)} style={{ ...btnG, borderStyle: "dashed" }} title="AI生成">🤖</button>
+                <button onClick={() => setShowImp(true)} style={{ ...btnG, borderStyle: "dashed" }} title="导入文档">📥</button>
+              </>}
               <button onClick={() => setMode(2)} style={btnG}>📖{wrongs > 0 ? ` ${wrongs}` : ""}</button>
               <button onClick={startQ} style={btnP}>🧪 测试</button>
             </>}
+          {/* Auth button */}
+          {authed
+            ? <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 8, paddingLeft: 8, borderLeft: "1px solid #e5e7eb" }}>
+                <span style={{ fontSize: 13, color: "#6366f1", fontWeight: 600 }}>👤 {authUser}</span>
+                <button onClick={() => { clearToken(); setAuthed(false); setAuthUser(""); }} style={{ ...btnG, fontSize: 12, padding: "4px 10px" }}>退出</button>
+              </div>
+            : <button onClick={() => setShowLogin(true)} style={{ ...btnG, marginLeft: 8, borderColor: "#6366f1", color: "#6366f1" }}>🔐 登录</button>
+          }
         </div>
       </div>
 
@@ -658,7 +713,7 @@ export default function App() {
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ ...bdg, background: cc.badge, color: cc.text }}>{card.category}</span>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      {mode === 0 && <>
+                      {mode === 0 && authed && <>
                         <button onClick={() => setShowCard(card)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#aaa", padding: 2 }} title="编辑">✏️</button>
                         <button onClick={() => { if (confirm("删除这张卡片？")) handleDeleteCard(card.id); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#aaa", padding: 2 }} title="删除">🗑️</button>
                       </>}
@@ -713,7 +768,7 @@ const overlay = { position: "fixed", inset: 0, zIndex: 1000, display: "flex", al
 const overlayBg = { position: "absolute", inset: 0, background: "rgba(0,0,0,.4)", backdropFilter: "blur(4px)" };
 const modal = { position: "relative", background: "var(--card-bg,#fff)", borderRadius: 16, padding: 24, width: "100%", maxWidth: 520, boxShadow: "0 20px 60px rgba(0,0,0,.2)" };
 const lb = { fontSize: 13, fontWeight: 600, color: "var(--text-color,#555)", display: "block", marginBottom: 6 };
-const inp = { width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14, boxSizing: "border-box", background: "var(--card-bg,#fff)", color: "var(--text-color,#333)", outline: "none" };
+const inp = { width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14, boxSizing: "border-box", background: "var(--card-bg,#fff)", color: "var(--text-color,#333)", outline: "none", fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' };
 const sideSection = { background: "#fff", borderRadius: 10, padding: "12px", boxShadow: "0 1px 3px rgba(0,0,0,.06)" };
 const sideLabel = { fontSize: 11, fontWeight: 700, color: "#aaa", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 };
 const sideItem = { display: "flex", alignItems: "center", gap: 6, padding: "6px 8px", borderRadius: 7, fontSize: 13, cursor: "pointer", marginBottom: 2 };

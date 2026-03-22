@@ -2,9 +2,9 @@
 八股文速记 - Flask 后端
 运行: pip install flask flask-cors && python app.py
 """
-import json, os, sqlite3
+import json, os, sqlite3, hashlib, hmac, base64, time
 import urllib.request
-from flask import Flask, request, jsonify, Response, stream_with_context
+from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 
 # Load .env
@@ -20,6 +20,47 @@ app = Flask(__name__, static_folder="static", static_url_path="")
 CORS(app)
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "flashcards.db")
+JWT_SECRET = os.environ.get("JWT_SECRET", "changeme_please")
+
+# ── Simple JWT (no external deps) ──
+def _b64(data):
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
+
+def _unb64(s):
+    s += "=" * (-len(s) % 4)
+    return base64.urlsafe_b64decode(s)
+
+def jwt_encode(payload):
+    header = _b64(json.dumps({"alg":"HS256","typ":"JWT"}).encode())
+    body   = _b64(json.dumps(payload).encode())
+    sig    = _b64(hmac.new(JWT_SECRET.encode(), f"{header}.{body}".encode(), hashlib.sha256).digest())
+    return f"{header}.{body}.{sig}"
+
+def jwt_decode(token):
+    try:
+        header, body, sig = token.split(".")
+        expected = _b64(hmac.new(JWT_SECRET.encode(), f"{header}.{body}".encode(), hashlib.sha256).digest())
+        if not hmac.compare_digest(sig, expected):
+            return None
+        payload = json.loads(_unb64(body))
+        if payload.get("exp", 0) < time.time():
+            return None
+        return payload
+    except Exception:
+        return None
+
+def hash_pw(pw):
+    return hashlib.sha256(pw.encode()).hexdigest()
+
+def require_auth(f):
+    from functools import wraps
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+        if not token or not jwt_decode(token):
+            return jsonify({"error": "未登录"}), 401
+        return f(*args, **kwargs)
+    return decorated
 
 # ── Database Setup ──
 def get_db():
@@ -51,11 +92,18 @@ def init_db():
             result TEXT NOT NULL CHECK(result IN ('ok','fail')),
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL
+        );
     """)
     conn.commit()
     # Seed default data if empty
     if conn.execute("SELECT COUNT(*) FROM decks").fetchone()[0] == 0:
         seed_default_data(conn)
+    seed_users(conn)
+    conn.commit()
     conn.close()
 
 def seed_default_data(conn):
@@ -191,6 +239,38 @@ def seed_default_data(conn):
     conn.commit()
 
 # ── API Routes ──
+def seed_users(conn):
+    """创建初始账号，账号密码从 .env 读取"""
+    users = [
+        (os.environ.get("ADMIN1_USER", "admin"), os.environ.get("ADMIN1_PASS", "admin123")),
+        (os.environ.get("ADMIN2_USER", ""), os.environ.get("ADMIN2_PASS", "")),
+    ]
+    for username, password in users:
+        if username:
+            conn.execute(
+                "INSERT OR IGNORE INTO users (username, password_hash) VALUES (?, ?)",
+                (username, hash_pw(password))
+            )
+
+# ── Auth ──
+@app.route("/api/login", methods=["POST"])
+def login():
+    data = request.json or {}
+    username = data.get("username", "").strip()
+    password = data.get("password", "")
+    if not username or not password:
+        return jsonify({"error": "请填写账号和密码"}), 400
+    conn = get_db()
+    user = conn.execute(
+        "SELECT id FROM users WHERE username=? AND password_hash=?",
+        (username, hash_pw(password))
+    ).fetchone()
+    conn.close()
+    if not user:
+        return jsonify({"error": "账号或密码错误"}), 401
+    token = jwt_encode({"sub": username, "exp": int(time.time()) + 86400 * 30})
+    return jsonify({"token": token, "username": username})
+
 @app.route("/api/decks", methods=["GET"])
 def get_decks():
     conn = get_db()
@@ -206,6 +286,7 @@ def get_decks():
     return jsonify(result)
 
 @app.route("/api/decks", methods=["POST"])
+@require_auth
 def create_deck():
     data = request.json
     conn = get_db()
@@ -222,6 +303,7 @@ def create_deck():
     return jsonify({"id": deck_id, "name": data["name"]}), 201
 
 @app.route("/api/decks/<int:deck_id>", methods=["DELETE"])
+@require_auth
 def delete_deck(deck_id):
     if deck_id <= 6:  # protect default decks... or allow?
         pass
@@ -233,6 +315,7 @@ def delete_deck(deck_id):
     return jsonify({"ok": True})
 
 @app.route("/api/cards", methods=["POST"])
+@require_auth
 def create_card():
     data = request.json
     conn = get_db()
@@ -245,6 +328,7 @@ def create_card():
     return jsonify({"ok": True}), 201
 
 @app.route("/api/cards/<card_id>", methods=["PUT"])
+@require_auth
 def update_card(card_id):
     data = request.json
     conn = get_db()
@@ -257,6 +341,7 @@ def update_card(card_id):
     return jsonify({"ok": True})
 
 @app.route("/api/cards/<card_id>", methods=["DELETE"])
+@require_auth
 def delete_card(card_id):
     conn = get_db()
     conn.execute("DELETE FROM cards WHERE id=?", (card_id,))
@@ -284,6 +369,7 @@ def update_score():
     return jsonify({"ok": True})
 
 @app.route("/api/reset", methods=["POST"])
+@require_auth
 def reset_all():
     conn = get_db()
     conn.execute("DELETE FROM scores")
@@ -295,6 +381,7 @@ def reset_all():
     return jsonify({"ok": True})
 
 @app.route("/api/ai", methods=["POST"])
+@require_auth
 def ai_proxy():
     api_key = os.environ.get("ANTHROPIC_API_KEY", "")
     if not api_key or api_key == "你的Key填这里":
