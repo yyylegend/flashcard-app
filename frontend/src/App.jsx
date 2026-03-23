@@ -388,6 +388,7 @@ export default function App() {
   const [authUser, setAuthUser] = useState("");
   const [showLogin, setShowLogin] = useState(false);
   const [dlg, setDlg] = useState(null); // {message, onConfirm}
+  const [wIdx, setWIdx] = useState(0);  // review mode index
 
   // ── Load from backend on mount ──
   useEffect(() => {
@@ -536,31 +537,8 @@ export default function App() {
 
   if (!loaded) return <div style={{ ...W, textAlign: "center", paddingTop: 80 }}><p style={{ color: "#999" }}>加载中...</p></div>;
 
-  // ── Review mode ──
-  if (mode === 2) {
-    const ws = all.filter(q => scores[q.id] === "fail");
-    return (
-      <div style={W}>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
-          <h2 style={H2}>📖 错题回顾</h2>
-          <button onClick={() => setMode(0)} style={btnG}>← 返回</button>
-        </div>
-        {ws.length === 0
-          ? <div style={ctr}><div style={{ fontSize: 48 }}>🎉</div><p style={{ color: "#999", marginTop: 12 }}>没有错题！</p></div>
-          : ws.map(q => {
-            const c = gc(q.category);
-            return (
-              <div key={q.id} style={rCard}>
-                <span style={{ ...bdg, background: c.badge, color: c.text }}>{q.category}</span>
-                <div style={{ fontSize: 15, fontWeight: 700, margin: "10px 0 12px", color: "var(--text-color,#111)" }}>{q.q}</div>
-                <Ans text={q.a} />
-                {q.tips && <div style={tip}><span>💡</span><span>{q.tips}</span></div>}
-              </div>
-            );
-          })}
-      </div>
-    );
-  }
+  const ws = all.filter(q => scores[q.id] === "fail");
+  const wCard = ws[wIdx] ?? null;
 
   // ── Main layout ──
   return (
@@ -687,6 +665,25 @@ export default function App() {
             </div>
           )}
 
+          {/* Review answer sheet */}
+          {mode === 2 && ws.length > 0 && (
+            <div style={sideSection}>
+              <div style={sideLabel}>错题卡</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                {ws.map((c, i) => {
+                  const isCur = i === wIdx;
+                  return (
+                    <button key={c.id} onClick={() => setWIdx(i)}
+                      title={c.q}
+                      style={{ width: 28, height: 28, borderRadius: 6, border: "none", background: isCur ? "#6366f1" : "#fee2e2", color: isCur ? "#fff" : "#991b1b", fontSize: 11, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      {i + 1}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Reset */}
           {mode === 0 && (
             <button onClick={() => { setDlg({ message: "重置所有成绩？（不会删除卡片）", onConfirm: resetData }); }}
@@ -698,16 +695,46 @@ export default function App() {
 
         {/* ── Right content ── */}
         <div style={{ flex: 1, minWidth: 0 }}>
+
+          {/* ── Review mode ── */}
+          {mode === 2 && (
+            <div style={W}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
+                <h2 style={H2}>📖 错题回顾</h2>
+                <button onClick={() => setMode(0)} style={btnG}>← 返回</button>
+              </div>
+              {ws.length === 0
+                ? <div style={ctr}><div style={{ fontSize: 48 }}>🎉</div><p style={{ color: "#999", marginTop: 12 }}>没有错题！</p></div>
+                : wCard && (
+                  <>
+                    <div style={rCard}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                        <span style={{ ...bdg, background: gc(wCard.category).badge, color: gc(wCard.category).text }}>{wCard.category}</span>
+                        <span style={{ fontSize: 12, color: "#999" }}>{wIdx + 1} / {ws.length}</span>
+                      </div>
+                      <div style={{ fontSize: 15, fontWeight: 700, margin: "10px 0 12px", color: "var(--text-color,#111)" }}>{wCard.q}</div>
+                      <Ans text={wCard.a} />
+                      {wCard.tips && <div style={tip}><span>💡</span><span>{wCard.tips}</span></div>}
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 16 }}>
+                      <button disabled={wIdx === 0} onClick={() => setWIdx(i => i - 1)} style={btnN}>← 上一题</button>
+                      <button disabled={wIdx === ws.length - 1} onClick={() => setWIdx(i => i + 1)} style={btnN}>下一题 →</button>
+                    </div>
+                  </>
+                )}
+            </div>
+          )}
+
           {/* Progress bar */}
-          <div style={{ height: 4, background: "#e5e7eb", borderRadius: 4, overflow: "hidden", marginBottom: 4 }}>
+          {mode !== 2 && <div style={{ height: 4, background: "#e5e7eb", borderRadius: 4, overflow: "hidden", marginBottom: 4 }}>
             <div style={{ height: "100%", background: "linear-gradient(90deg,#6366f1,#8b5cf6)", borderRadius: 4, transition: "width .3s", width: `${pct}%` }} />
-          </div>
-          <div style={{ fontSize: 12, color: "#ccc", textAlign: "right", marginBottom: 14 }}>
+          </div>}
+          {mode !== 2 && <div style={{ fontSize: 12, color: "#ccc", textAlign: "right", marginBottom: 14 }}>
             {mode === 1 ? `${stats.ok + stats.fail}/${stats.total}` : `${cards.length ? idx + 1 : 0}/${cards.length}`}
-          </div>
+          </div>}
 
           {/* Card area */}
-          {cards.length === 0
+          {mode !== 2 && (cards.length === 0
             ? <div style={ctr}>
               <p style={{ color: "#999" }}>暂无题目</p>
               <button onClick={() => setShowCard("add")} style={{ ...btnP, marginTop: 12 }}>➕ 添加第一张卡片</button>
@@ -759,7 +786,7 @@ export default function App() {
                         </div>}
                     </>}
                 </div>
-                : null}
+                : null)}
 
           {/* Quiz score bar */}
           {mode === 1 && !done && (
