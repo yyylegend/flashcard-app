@@ -330,7 +330,7 @@ def create_card():
     conn = get_db()
     conn.execute(
         "INSERT OR REPLACE INTO cards (id, deck_id, category, question, answer, tips) VALUES (?,?,?,?,?,?)",
-        (data.get("id", f"m_{hash(data['q'])}"), data["deck_id"], data.get("category",""), data["q"], data["a"], data.get("tips",""))
+        (data.get("id", f"m_{hashlib.md5(data['q'].encode()).hexdigest()[:12]}"), data["deck_id"], data.get("category",""), data["q"], data["a"], data.get("tips",""))
     )
     conn.commit()
     conn.close()
