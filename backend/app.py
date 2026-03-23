@@ -423,8 +423,9 @@ def ai_proxy():
 def index():
     return app.send_static_file("index.html")
 
+init_db()
+
 if __name__ == "__main__":
-    init_db()
     print("🧠 八股文速记 running at http://localhost:5000")
     print("   数据库:", DB_PATH)
     app.run(debug=True, port=5000, use_reloader=False)
