@@ -71,3 +71,34 @@ export async function saveScore(cardId, result) {
 export async function resetAll() {
   await fetch(`${BASE}/reset`, { method: "POST", headers: authHeaders() });
 }
+
+export async function fetchNotes() {
+  const r = await fetch(`${BASE}/notes`, { headers: authHeaders() });
+  return r.json();
+}
+
+export async function fetchNote(id) {
+  const r = await fetch(`${BASE}/notes/${id}`, { headers: authHeaders() });
+  return r.json();
+}
+
+export async function createNote(data) {
+  const r = await fetch(`${BASE}/notes`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  });
+  return r.json();
+}
+
+export async function updateNote(id, data) {
+  await fetch(`${BASE}/notes/${id}`, {
+    method: "PUT",
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteNote(id) {
+  await fetch(`${BASE}/notes/${id}`, { method: "DELETE", headers: authHeaders() });
+}

@@ -106,6 +106,15 @@ def init_db():
             username TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS notes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL,
+            tags TEXT DEFAULT '',
+            uploaded_by TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
     """)
     conn.commit()
     # Seed default data if empty
@@ -417,6 +426,78 @@ def ai_proxy():
             return Response(resp.read(), status=resp.status, content_type="application/json")
     except urllib.error.HTTPError as e:
         return Response(e.read(), status=e.code, content_type="application/json")
+
+
+# ── Notes API ──
+@app.route("/api/notes", methods=["GET"])
+@require_auth
+def list_notes():
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT id, title, tags, uploaded_by, created_at, updated_at FROM notes ORDER BY created_at DESC"
+    ).fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
+
+@app.route("/api/notes", methods=["POST"])
+@require_auth
+def create_note():
+    data = request.json
+    conn = get_db()
+    cur = conn.execute(
+        "INSERT INTO notes (title, content, tags, uploaded_by) VALUES (?, ?, ?, ?)",
+        (data["title"], data["content"], data.get("tags", ""), g.username)
+    )
+    note_id = cur.lastrowid
+    conn.commit()
+    conn.close()
+    return jsonify({"id": note_id}), 201
+
+@app.route("/api/notes/<int:note_id>", methods=["GET"])
+@require_auth
+def get_note(note_id):
+    conn = get_db()
+    row = conn.execute("SELECT * FROM notes WHERE id=?", (note_id,)).fetchone()
+    conn.close()
+    if not row:
+        return jsonify({"error": "Not found"}), 404
+    return jsonify(dict(row))
+
+@app.route("/api/notes/<int:note_id>", methods=["PUT"])
+@require_auth
+def update_note(note_id):
+    conn = get_db()
+    row = conn.execute("SELECT uploaded_by FROM notes WHERE id=?", (note_id,)).fetchone()
+    if not row:
+        conn.close()
+        return jsonify({"error": "Not found"}), 404
+    if row["uploaded_by"] != g.username:
+        conn.close()
+        return jsonify({"error": "无权限"}), 403
+    data = request.json
+    conn.execute(
+        "UPDATE notes SET title=?, content=?, tags=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+        (data["title"], data["content"], data.get("tags", ""), note_id)
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+@app.route("/api/notes/<int:note_id>", methods=["DELETE"])
+@require_auth
+def delete_note(note_id):
+    conn = get_db()
+    row = conn.execute("SELECT uploaded_by FROM notes WHERE id=?", (note_id,)).fetchone()
+    if not row:
+        conn.close()
+        return jsonify({"error": "Not found"}), 404
+    if row["uploaded_by"] != g.username:
+        conn.close()
+        return jsonify({"error": "无权限"}), 403
+    conn.execute("DELETE FROM notes WHERE id=?", (note_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
 
 
 @app.route("/")
