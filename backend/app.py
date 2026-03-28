@@ -407,23 +407,36 @@ def reset_all():
 @app.route("/api/ai", methods=["POST"])
 @require_auth
 def ai_proxy():
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    if not api_key or api_key == "你的Key填这里":
-        return jsonify({"error": "未配置 ANTHROPIC_API_KEY"}), 500
-    body = request.get_data()
+    api_key = os.environ.get("DIFY_API_KEY", "")
+    if not api_key:
+        return jsonify({"error": "未配置 DIFY_API_KEY"}), 500
+    data = request.get_json()
+    payload = json.dumps({
+        "inputs": {
+            "mode": data.get("mode", ""),
+            "topic": data.get("topic", ""),
+            "count": str(data.get("count", "")),
+            "content": data.get("content", ""),
+            "note_title": data.get("note_title", ""),
+        },
+        "response_mode": "blocking",
+        "user": g.username,
+    }).encode("utf-8")
     req = urllib.request.Request(
-        "https://api.anthropic.com/v1/messages",
-        data=body,
+        "https://api.dify.ai/v1/workflows/run",
+        data=payload,
         headers={
             "Content-Type": "application/json",
-            "x-api-key": api_key,
-            "anthropic-version": "2023-06-01",
+            "Authorization": f"Bearer {api_key}",
+            "User-Agent": "Mozilla/5.0",
         },
         method="POST",
     )
     try:
         with urllib.request.urlopen(req) as resp:
-            return Response(resp.read(), status=resp.status, content_type="application/json")
+            result = json.loads(resp.read())
+            text = result.get("data", {}).get("outputs", {}).get("result", "")
+            return jsonify({"result": text})
     except urllib.error.HTTPError as e:
         return Response(e.read(), status=e.code, content_type="application/json")
 

@@ -6,6 +6,10 @@ import {
   Save, Lightbulb, X, Loader2, Paperclip, Sparkles,
 } from "lucide-react";
 import { Toaster, toast } from "react-hot-toast";
+import { Marked } from "marked";
+import { markedHighlight } from "marked-highlight";
+import hljs from "highlight.js";
+import "highlight.js/styles/github-dark.css";
 import ReactConfetti from "react-confetti";
 import {
   fetchDecks, createDeck, deleteDeck,
@@ -112,36 +116,36 @@ async function docTxt(f) {
   return (await f.text()).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 30000);
 }
 
-/* ── Code block renderer ── */
+/* ── Markdown renderer ── */
+const _marked = new Marked();
+_marked.use(markedHighlight({
+  langPrefix: "hljs language-",
+  highlight(code, lang) {
+    const language = hljs.getLanguage(lang) ? lang : "plaintext";
+    return hljs.highlight(code, { language }).value;
+  }
+}));
+_marked.use({ breaks: true, gfm: true });
+
 function Ans({ text }) {
-  const parts = text.split(/(```[\s\S]*?```)/g);
-  return (
-    <div>
-      {parts.map((p, i) => {
-        if (p.startsWith("```")) {
-          const lines = p.slice(3, -3);
-          const nl = lines.indexOf("\n");
-          return <pre key={i} style={codeSt}><code>{nl > -1 ? lines.slice(nl + 1) : lines}</code></pre>;
-        }
-        if (!p.trim()) return null;
-        return <pre key={i} style={txtSt}>{p}</pre>;
-      })}
-    </div>
-  );
+  const html = _marked.parse(text || "");
+  return <div className="md-preview" dangerouslySetInnerHTML={{ __html: html }} />;
 }
 
 /* ── Confirm Dialog ── */
 function ConfirmDialog({ message, onConfirm, onCancel }) {
   return (
     <div style={overlay}>
-      <div style={overlayBg} onClick={onCancel} />
-      <div style={{ ...modal, maxWidth: 360, padding: 28 }}>
+      <motion.div style={overlayBg} onClick={onCancel}
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} />
+      <motion.div style={{ ...modal, maxWidth: 360, padding: 28 }}
+        initial={{ opacity: 0, scale: 0.92, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.92, y: 10 }} transition={{ duration: 0.2, ease: "easeOut" }}>
         <p style={{ margin: "0 0 24px", fontSize: 15, color: "var(--text-color,#111)", lineHeight: 1.6 }}>{message}</p>
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
           <button onClick={onCancel} style={{ padding: "8px 20px", borderRadius: 8, border: "1px solid #ddd", background: "#f5f5f5", cursor: "pointer", fontSize: 14 }}>取消</button>
           <button onClick={onConfirm} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "#ef4444", color: "#fff", cursor: "pointer", fontSize: 14, fontWeight: 600 }}>确认删除</button>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
@@ -197,33 +201,34 @@ function CardModal({ onClose, onSave, categories, initial }) {
 }
 
 /* ── AI Generate Modal ── */
-function AIGenModal({ onClose, onAdd }) {
+function AIGenModal({ onClose, onAdd, decks, defaultDeckId }) {
   const [topic, setTopic] = useState("");
   const [count, setCount] = useState("10");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [progress, setProgress] = useState("");
+  const [targetDeck, setTargetDeck] = useState(defaultDeckId || "new");
 
   const generate = async () => {
     if (!topic.trim()) return;
     setLoading(true); setError(""); setProgress("AI正在生成...");
     try {
-      const sys = `Generate ${count} interview flashcards about "${topic}". Rules: 1.Questions in conversational Chinese. 2.Answers concise ≤150 words, use \`\`\`python for code. 3.Create 3-5 categories. 4.JSON array only:[{"category":"...","q":"...","a":"...","tips":"..."}] 5.Complete the array. 6.All Chinese.`;
       const resp = await fetch(`${import.meta.env.VITE_API_BASE}/api/ai`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 8000, system: sys, messages: [{ role: "user", content: `生成「${topic}」的${count}道面试题` }] }),
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getToken()}` },
+        body: JSON.stringify({ mode: "topic", topic, count }),
       });
       if (!resp.ok) throw new Error(`API ${resp.status}`);
       setProgress("解析中...");
       const data = await resp.json();
-      const parsed = fixJ(data.content.map(b => b.text || "").join(""));
+      const parsed = fixJ(data.result);
       if (!parsed?.length) throw new Error("解析失败");
       const cards = parsed
         .map(it => ({ category: it.category || topic, q: it.q || "", a: it.a || "", tips: it.tips || "" }))
         .filter(c => c.q && c.a);
       if (!cards.length) throw new Error("未生成有效题目");
-      onAdd(cards);
+      onAdd(cards, targetDeck === "new" ? null : targetDeck, topic);
+      toast.success(`已生成 ${cards.length} 张卡片`);
     } catch (err) { setError(err.message); }
     finally { setLoading(false); setProgress(""); }
   };
@@ -245,6 +250,12 @@ function AIGenModal({ onClose, onAdd }) {
           </button>
         ))}
       </div>
+      <label style={{ ...lb, marginTop: 4 }}>加入题库</label>
+      <select value={targetDeck} onChange={e => setTargetDeck(e.target.value)}
+        style={{ ...inp, marginBottom: 16, cursor: "pointer" }}>
+        <option value="new">＋ 新建题库（以主题命名）</option>
+        {decks.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+      </select>
       {error && <div style={errSt}>{error}</div>}
       {progress && <div style={progSt}><span style={spin} />{progress}</div>}
       <button onClick={generate} disabled={loading || !topic.trim()}
@@ -273,8 +284,10 @@ function LoginModal({ onClose, onLogin }) {
 
   return (
     <div style={overlay}>
-      <div style={overlayBg} onClick={onClose} />
-      <div style={{ ...modal, maxWidth: 360 }}>
+      <motion.div style={overlayBg} onClick={onClose}
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} />
+      <motion.div style={{ ...modal, maxWidth: 360 }}
+        initial={{ opacity: 0, scale: 0.92, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.92, y: 10 }} transition={{ duration: 0.2, ease: "easeOut" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: "var(--text-1,#111)", display:"flex", alignItems:"center", gap:7 }}><Lock size={16}/> 登录</h2>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-3,#999)", display:"inline-flex" }}><X size={20}/></button>
@@ -290,7 +303,7 @@ function LoginModal({ onClose, onLogin }) {
           style={{ ...btnP, width: "100%", padding: 12, fontSize: 15, opacity: (!username.trim() || !password || loading) ? .5 : 1 }}>
           {loading ? "登录中..." : "登录"}
         </button>
-      </div>
+      </motion.div>
     </div>
   );
 }
@@ -326,23 +339,22 @@ function ImportModal({ onClose, onImport }) {
     if (!text.trim()) return;
     setLoading(true); setError(""); setProgress("分析...");
     try {
-      const n = text.length > 10000 ? 20 : text.length > 5000 ? 15 : 12;
-      const sys = `Extract ${n} interview questions. Conversational Chinese, ≤150 word answers with \`\`\`python, 3-6 categories, JSON array only, complete it.`;
       const resp = await fetch(`${import.meta.env.VITE_API_BASE}/api/ai`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 8000, system: sys, messages: [{ role: "user", content: `Topic:${topic || "未指定"}\n\n${text.slice(0, 15000)}` }] }),
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getToken()}` },
+        body: JSON.stringify({ mode: "text", topic: topic || "", content: text.slice(0, 15000) }),
       });
       if (!resp.ok) throw new Error(`API ${resp.status}`);
       setProgress("生成...");
       const data = await resp.json();
-      const parsed = fixJ(data.content.map(b => b.text || "").join(""));
+      const parsed = fixJ(data.result);
       if (!parsed?.length) throw new Error("解析失败");
       const cards = parsed
         .map(it => ({ category: it.category || topic || "导入", q: it.q || "", a: it.a || "", tips: it.tips || "" }))
         .filter(c => c.q && c.a);
       if (!cards.length) throw new Error("未解析出题目");
       onImport(cards, topic || "自定义");
+      toast.success(`已导入 ${cards.length} 张卡片`);
     } catch (err) { setError(err.message); }
     finally { setLoading(false); setProgress(""); }
   };
@@ -504,10 +516,15 @@ export default function App() {
     flashSave();
   };
 
-  // AI-generated cards → add to current deck
-  const addCards = async (cs) => {
+  // AI-generated cards → add to selected deck (or create new)
+  const addCards = async (cs, deckId, topic) => {
+    let targetId = deckId;
+    if (!targetId) {
+      const newDeck = await createDeck(topic || "AI生成");
+      targetId = newDeck.id;
+    }
     for (const c of cs) {
-      await createCard(dk.id, { category: c.category, q: c.q, a: c.a, tips: c.tips }).catch(() => {});
+      await createCard(targetId, { category: c.category, q: c.q, a: c.a, tips: c.tips }).catch(() => {});
     }
     const fresh = await fetchDecks();
     const normalized = fresh.map(d => ({
@@ -515,6 +532,7 @@ export default function App() {
       cards: (d.cards || []).map(x => ({ ...x, category: x.category || "未分类", tips: x.tips || "" })),
     }));
     setDecks(normalized);
+    if (!deckId) setDi(normalized.findIndex(d => d.id === targetId));
     setShowAI(false);
     flashSave();
   };
@@ -594,8 +612,8 @@ export default function App() {
     <div style={{ fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif', minHeight: "100vh", background: "var(--page-bg)" }}>
       <Toaster position="top-right" toastOptions={{ style: { fontSize: 14, borderRadius: 10 } }} />
       {showConfetti && <ReactConfetti width={window.innerWidth} height={window.innerHeight} recycle={false} numberOfPieces={280} />}
-      {showLogin && <LoginModal onClose={() => setShowLogin(false)} onLogin={u => { setAuthed(true); setAuthUser(u); reloadScores(); }} />}
-      {dlg && <ConfirmDialog message={dlg.message} onConfirm={() => { dlg.onConfirm(); setDlg(null); }} onCancel={() => setDlg(null)} />}
+      <AnimatePresence>{showLogin && <LoginModal onClose={() => setShowLogin(false)} onLogin={u => { setAuthed(true); setAuthUser(u); reloadScores(); }} />}</AnimatePresence>
+      <AnimatePresence>{dlg && <ConfirmDialog message={dlg.message} onConfirm={() => { dlg.onConfirm(); setDlg(null); }} onCancel={() => setDlg(null)} />}</AnimatePresence>
       {showImp && <ImportModal onClose={() => setShowImp(false)} onImport={impDeck} />}
       {showCard !== null && (
         <CardModal
@@ -605,7 +623,7 @@ export default function App() {
           initial={showCard === "add" ? null : showCard}
         />
       )}
-      {showAI && <AIGenModal onClose={() => setShowAI(false)} onAdd={addCards} />}
+      {showAI && <AIGenModal onClose={() => setShowAI(false)} onAdd={addCards} decks={decks} defaultDeckId={dk?.id} />}
 
       {/* Top header bar */}
       <div style={{ background: "var(--surface)", borderBottom: "1px solid var(--app-border)" }}>
@@ -786,7 +804,10 @@ export default function App() {
         </div>
 
         {/* ── Right content ── */}
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <AnimatePresence mode="wait">
+        <motion.div key={di} style={{ flex: 1, minWidth: 0 }}
+          initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }}
+          transition={{ duration: 0.18, ease: "easeOut" }}>
 
           {/* ── Review mode ── */}
           {mode === 2 && (
@@ -862,9 +883,15 @@ export default function App() {
                     </div>
                   </div>
                   <div style={{ fontSize: 17, fontWeight: 700, lineHeight: 1.5, margin: "14px 0 18px", color: "var(--text-1,#111)" }}>{card.q}</div>
+                  <AnimatePresence mode="wait">
                   {!show
-                    ? <button onClick={() => setShow(true)} style={{ ...showB, display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}><Eye size={15}/> 查看答案</button>
-                    : <>
+                    ? <motion.button key="show-btn" onClick={() => setShow(true)} style={{ ...showB, display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+                        <Eye size={15}/> 查看答案
+                      </motion.button>
+                    : <motion.div key="answer"
+                        initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}>
                       <Ans text={card.a} />
                       {card.tips && <div style={tip}><Lightbulb size={14} style={{flexShrink:0}}/><span>{card.tips}</span></div>}
                       {mode === 1
@@ -876,7 +903,8 @@ export default function App() {
                           <button disabled={idx === 0} onClick={() => { setIdx(i => i - 1); setShow(false); }} style={btnN}><ChevronLeft size={14}/> 上一题</button>
                           <button disabled={idx === cards.length - 1} onClick={() => { setIdx(i => i + 1); setShow(false); }} style={btnN}>下一题 <ChevronRight size={14}/></button>
                         </div>}
-                    </>}
+                      </motion.div>}
+                  </AnimatePresence>
                 </div>
                 : null)}
 
@@ -888,7 +916,8 @@ export default function App() {
               <span style={{ color: "#ef4444" }}>✗ {stats.fail}</span>
             </div>
           )}
-        </div>
+        </motion.div>
+        </AnimatePresence>
       </motion.div>
         )}
       </AnimatePresence>
@@ -914,7 +943,7 @@ const lb = { fontSize: 13, fontWeight: 600, color: "var(--text-color,#555)", dis
 const inp = { width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid var(--app-border,#e5e7eb)", fontSize: 14, boxSizing: "border-box", background: "var(--card-bg,#fff)", color: "var(--text-color,#333)", outline: "none", fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' };
 const sideSection = { background: "var(--surface,#fff)", borderRadius: 10, padding: "12px", boxShadow: "0 1px 3px rgba(0,0,0,.06)" };
 const sideLabel = { fontSize: 11, fontWeight: 700, color: "var(--text-3,#aaa)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 };
-const sideItem = { display: "flex", alignItems: "center", gap: 6, padding: "6px 8px", borderRadius: 7, fontSize: 13, cursor: "pointer", marginBottom: 2 };
+const sideItem = { display: "flex", alignItems: "center", gap: 6, padding: "6px 8px", borderRadius: 7, fontSize: 13, cursor: "pointer", marginBottom: 2, transition: "background 0.2s, color 0.2s, font-weight 0.2s" };
 const codeSt = { background: "#1e1e2e", color: "#cdd6f4", padding: "14px 16px", borderRadius: 10, fontSize: 13, lineHeight: 1.6, overflowX: "auto", margin: "6px 0 10px", fontFamily: "Menlo,Monaco,monospace", border: "1px solid #313244", whiteSpace: "pre-wrap", wordBreak: "break-word", textAlign: "left" };
 const txtSt = { background: "transparent", padding: 0, margin: "0 0 4px", fontSize: 13.5, lineHeight: 1.75, whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: '-apple-system,sans-serif', color: "var(--text-color,#374151)", textAlign: "left" };
 const errSt = { background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#dc2626", marginBottom: 12 };

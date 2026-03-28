@@ -238,19 +238,17 @@ export default function NotesView({ authed, authUser, onImportCards }) {
     setGenLoading(true);
     setGenMsg("🤖 AI 正在解析笔记，请稍候...");
     try {
-      const sys = `从以下Markdown笔记中提取面试题闪卡。规则：1.问题用中文对话式表达。2.答案简洁（≤150字），代码块使用\`\`\`python。3.创建3-6个分类。4.仅返回完整JSON数组：[{"category":"...","q":"...","a":"...","tips":"..."}]。5.全部用中文。`;
       const resp = await fetch(`${import.meta.env.VITE_API_BASE}/api/ai`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getToken()}` },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 8000,
-          system: sys,
-          messages: [{ role: "user", content: `笔记标题：${note.title}\n\n${note.content.slice(0, 15000)}` }]
+          mode: "notes",
+          note_title: note.title,
+          content: note.content.slice(0, 15000),
         })
       });
       const data = await resp.json();
-      const raw = data.content?.[0]?.text || "";
+      const raw = data.result || "";
       let cards = null;
       const cleaned = raw.replace(/```json|```/g, "").trim();
       try { cards = JSON.parse(cleaned); } catch (_) { void _; }
