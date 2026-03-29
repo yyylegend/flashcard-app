@@ -1,0 +1,22 @@
+services:
+  backend:
+    build: ./backend
+    container_name: flashcard-backend
+    environment:
+      - FLASK_ENV=production
+    volumes:
+      # 数据库文件挂载到宿主机，容器重建后数据不丢失
+      - ./backend/flashcards.db:/app/flashcards.db
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE: ""
+    container_name: flashcard-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped

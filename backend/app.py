@@ -522,4 +522,4 @@ init_db()
 if __name__ == "__main__":
     print("🧠 八股文速记 running at http://localhost:5000")
     print("   数据库:", DB_PATH)
-    app.run(debug=True, port=5000, use_reloader=False)
+    app.run(debug=False, host='0.0.0.0', port=5000, use_reloader=False)
