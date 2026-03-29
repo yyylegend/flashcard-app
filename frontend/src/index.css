@@ -162,11 +162,16 @@ code {
   margin: 0.8em 0;
   font-size: 13px;
   line-height: 1.6;
+  background: #1e1e2e;
+  padding: 14px 16px;
 }
 .md-preview pre code {
   font-family: Menlo, Monaco, Consolas, monospace;
   font-size: inherit;
   padding: 0;
+  background: transparent;
+  color: #cdd6f4;
+  white-space: pre;
 }
 /* 行内代码 */
 .md-preview :not(pre) > code {

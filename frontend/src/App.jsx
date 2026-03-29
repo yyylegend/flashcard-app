@@ -121,8 +121,10 @@ const _marked = new Marked();
 _marked.use(markedHighlight({
   langPrefix: "hljs language-",
   highlight(code, lang) {
-    const language = hljs.getLanguage(lang) ? lang : "plaintext";
-    return hljs.highlight(code, { language }).value;
+    if (lang && hljs.getLanguage(lang)) {
+      return hljs.highlight(code, { language: lang }).value;
+    }
+    return hljs.highlight(code, { language: "plaintext", ignoreIllegals: true }).value;
   }
 }));
 _marked.use({ breaks: true, gfm: true });
