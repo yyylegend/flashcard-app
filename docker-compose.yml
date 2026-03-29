@@ -2,10 +2,12 @@ services:
   db:
     image: postgres:16-alpine
     container_name: flashcard-db
+    env_file:
+      - ./backend/.env
     environment:
-      POSTGRES_DB: flashcards
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${PG_DB:-flashcards}
+      POSTGRES_USER: ${PG_USER:-postgres}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-postgres}
     volumes:
       - pg_data:/var/lib/postgresql/data
     restart: unless-stopped
@@ -24,9 +26,6 @@ services:
       - FLASK_ENV=production
       - PG_HOST=db
       - PG_PORT=5432
-      - PG_DB=flashcards
-      - PG_USER=postgres
-      - PG_PASSWORD=postgres
     depends_on:
       db:
         condition: service_healthy
