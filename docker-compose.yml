@@ -2,6 +2,8 @@ services:
   backend:
     build: ./backend
     container_name: flashcard-backend
+    env_file:
+      - ./backend/.env
     environment:
       - FLASK_ENV=production
     volumes:
