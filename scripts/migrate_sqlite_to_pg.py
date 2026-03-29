@@ -8,7 +8,7 @@ import psycopg2.extras
 import os
 import sys
 
-SQLITE_PATH = os.path.join(os.path.dirname(__file__), "../backend/flashcards.db")
+SQLITE_PATH = os.environ.get("SQLITE_PATH", os.path.join(os.path.dirname(__file__), "../backend/flashcards.db"))
 
 PG_HOST = os.environ.get("PG_HOST", "localhost")
 PG_PORT = os.environ.get("PG_PORT", "5432")
