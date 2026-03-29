@@ -14,7 +14,7 @@
 - **键盘快捷键**：`Space` 显示/隐藏答案，`←` `→` 切换题目
 
 ### AI
-- AI 一键生成题目（调用 Claude API）
+- AI 一键生成题目（调用 Dify Workflow）
 - 导入文档（PDF / TXT / MD / DOCX）由 AI 解析生成题目
 - 从笔记一键生成闪卡题库
 
@@ -37,9 +37,11 @@
 | 动画 | Framer Motion |
 | 图标 | Lucide React |
 | Markdown | Marked + Highlight.js + KaTeX |
-| 后端 | Python Flask + SQLite |
+| 后端 | Python Flask + PostgreSQL |
 | 认证 | JWT (HS256，自实现) |
-| AI | Claude API (claude-sonnet-4) |
+| AI | Dify Workflow API |
+| 容器化 | Docker + Docker Compose |
+| Web 服务器 | Nginx（反向代理 + 托管前端静态文件） |
 
 ## 项目结构
 
@@ -48,7 +50,8 @@ flashcard-app/
 ├── backend/
 │   ├── app.py              # Flask API 服务
 │   ├── requirements.txt    # Python 依赖
-│   └── flashcards.db       # SQLite 数据库（自动创建）
+│   ├── Dockerfile
+│   └── .env                # 环境变量（不提交）
 ├── frontend/
 │   ├── src/
 │   │   ├── App.jsx         # 主应用组件（闪卡、测试、错题回顾）
@@ -56,56 +59,88 @@ flashcard-app/
 │   │   ├── api.js          # 后端 API 封装
 │   │   ├── index.css       # 全局样式 & CSS 变量主题
 │   │   └── main.jsx        # 入口
+│   ├── nginx.conf          # Nginx 配置
+│   ├── Dockerfile
 │   ├── index.html
 │   └── package.json
-├── kill_ports.ps1          # 一键关闭前后端端口（Windows）
+├── scripts/
+│   └── migrate_sqlite_to_pg.py  # SQLite → PostgreSQL 迁移脚本
+├── docker-compose.yml      # 编排前端 + 后端 + 数据库
+├── deploy.sh               # 服务器一键部署脚本
 └── README.md
 ```
 
-## 快速开始
+## 快速开始（Docker）
 
-### 1. 启动后端
+### 1. 配置环境变量
+
+在 `backend/` 下创建 `.env` 文件：
+
+```
+DIFY_API_KEY=你的Dify API Key
+JWT_SECRET=随机字符串
+ADMIN1_USER=admin
+ADMIN1_PASS=yourpassword
+ADMIN2_USER=
+ADMIN2_PASS=
+```
+
+### 2. 启动
 
 ```bash
-cd backend
+docker-compose up --build
+```
 
-# 创建虚拟环境（推荐）
-python -m venv venv
-source venv/bin/activate      # Mac/Linux
-# venv\Scripts\activate       # Windows
+访问 `http://localhost`，首次启动自动建表并导入默认题库（80题）。
 
-# 安装依赖
-pip install -r requirements.txt
+### 3. 后续更新
+
+```bash
+docker-compose up --build
+```
+
+只有代码改动时才需要 `--build`，否则直接 `docker-compose up`。
+
+## 部署到服务器
+
+服务器需要安装 Docker 和 Docker Compose。
+
+```bash
+# 安装 Docker
+curl -fsSL https://get.docker.com | sh
+
+# 克隆代码
+git clone https://github.com/yyylegend/flashcard-app.git
+cd flashcard-app
+git checkout dev
+
+# 创建 backend/.env（填入真实密钥）
+nano backend/.env
 
 # 启动
-python app.py
+docker-compose up --build -d
 ```
 
-后端运行在 `http://localhost:5000`，首次启动自动建表并导入默认题库（80题）。
-
-### 2. 启动前端
+### 一键更新部署
 
 ```bash
-cd frontend
-npm install
-npm run dev
+./deploy.sh
 ```
 
-前端运行在 `http://localhost:5173`。
+脚本会自动 `git pull` → 重建镜像 → 重启容器。
 
-### 3. 环境变量
-
-前端 `.env` 文件：
+## 架构说明
 
 ```
-VITE_API_BASE=http://localhost:5000
+浏览器 → :80 (Nginx)
+              │
+              ├── 静态文件 (React 构建产物)
+              └── /api/* → Flask:5000 (后端容器)
+                                │
+                                └── PostgreSQL:5432 (数据库容器)
 ```
 
-### 4. Windows 一键关闭端口
-
-```powershell
-.\kill_ports.ps1
-```
+数据持久化到 Docker volume `pg_data`，容器重建后数据不丢失。
 
 ## 内置题库（80题）
 
@@ -132,7 +167,7 @@ VITE_API_BASE=http://localhost:5000
 | GET | `/api/scores` | 获取当前用户成绩 | ✅ |
 | POST | `/api/scores` | 记录答题结果 | ✅ |
 | POST | `/api/reset` | 重置当前用户成绩 | ✅ |
-| POST | `/api/ai` | Claude AI 代理 | ✅ |
+| POST | `/api/ai` | Dify AI 代理 | ✅ |
 | GET | `/api/notes` | 获取所有笔记（共享） | ✅ |
 | POST | `/api/notes` | 创建笔记 | ✅ |
 | GET | `/api/notes/:id` | 获取单条笔记 | ✅ |
@@ -141,12 +176,12 @@ VITE_API_BASE=http://localhost:5000
 
 ## 数据备份
 
-所有数据存储在 `backend/flashcards.db`，复制该文件即可备份。
+数据存储在 Docker volume `pg_data` 中。
 
 ```bash
 # 备份
-cp backend/flashcards.db backup_$(date +%Y%m%d).db
+docker exec flashcard-db pg_dump -U postgres flashcards > backup_$(date +%Y%m%d).sql
 
 # 恢复
-cp backup_20240101.db backend/flashcards.db
+docker exec -i flashcard-db psql -U postgres flashcards < backup_20240101.sql
 ```
