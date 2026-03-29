@@ -1,4 +1,20 @@
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: flashcard-db
+    environment:
+      POSTGRES_DB: flashcards
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   backend:
     build: ./backend
     container_name: flashcard-backend
@@ -6,9 +22,14 @@ services:
       - ./backend/.env
     environment:
       - FLASK_ENV=production
-    volumes:
-      # 数据库文件挂载到宿主机，容器重建后数据不丢失
-      - ./backend/flashcards.db:/app/flashcards.db
+      - PG_HOST=db
+      - PG_PORT=5432
+      - PG_DB=flashcards
+      - PG_USER=postgres
+      - PG_PASSWORD=postgres
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
 
   frontend:
@@ -22,3 +43,6 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+
+volumes:
+  pg_data:

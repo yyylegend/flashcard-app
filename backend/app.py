@@ -1,9 +1,11 @@
 """
 八股文速记 - Flask 后端
-运行: pip install flask flask-cors && python app.py
+运行: pip install flask flask-cors psycopg2-binary && python app.py
 """
-import json, os, sqlite3, hashlib, hmac, base64, time
+import json, os, hashlib, hmac, base64, time
 import urllib.request
+import psycopg2
+import psycopg2.extras
 from flask import Flask, request, jsonify, Response, g
 from flask_cors import CORS
 
@@ -19,7 +21,6 @@ if os.path.exists(_env):
 app = Flask(__name__, static_folder="static", static_url_path="")
 CORS(app)
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "flashcards.db")
 JWT_SECRET = os.environ.get("JWT_SECRET", "changeme_please")
 
 # ── Simple JWT (no external deps) ──
@@ -71,19 +72,29 @@ def get_username():
 
 # ── Database Setup ──
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
+    conn = psycopg2.connect(
+        host=os.environ.get("PG_HOST", "db"),
+        port=os.environ.get("PG_PORT", "5432"),
+        dbname=os.environ.get("PG_DB", "flashcards"),
+        user=os.environ.get("PG_USER", "postgres"),
+        password=os.environ.get("PG_PASSWORD", "postgres"),
+    )
     return conn
+
+def get_cursor(conn):
+    return conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
 def init_db():
     conn = get_db()
-    conn.executescript("""
+    cur = get_cursor(conn)
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS decks (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             name TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
+        )
+    """)
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS cards (
             id TEXT PRIMARY KEY,
             deck_id INTEGER NOT NULL,
@@ -93,45 +104,55 @@ def init_db():
             tips TEXT DEFAULT '',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (deck_id) REFERENCES decks(id) ON DELETE CASCADE
-        );
+        )
+    """)
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS scores (
             username TEXT NOT NULL,
             card_id TEXT NOT NULL,
             result TEXT NOT NULL CHECK(result IN ('ok','fail')),
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (username, card_id)
-        );
+        )
+    """)
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             username TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL
-        );
+        )
+    """)
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS notes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             title TEXT NOT NULL,
             content TEXT NOT NULL,
             tags TEXT DEFAULT '',
             uploaded_by TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
+        )
     """)
     conn.commit()
-    # Seed default data if empty
-    if conn.execute("SELECT COUNT(*) FROM decks").fetchone()[0] == 0:
+    cur.execute("SELECT COUNT(*) FROM decks")
+    if cur.fetchone()["count"] == 0:
         seed_default_data(conn)
     seed_users(conn)
     conn.commit()
+    cur.close()
     conn.close()
 
 def seed_default_data(conn):
     """Insert all built-in cards"""
-    conn.execute("INSERT INTO decks (id, name) VALUES (1, 'Python基础')")
-    conn.execute("INSERT INTO decks (id, name) VALUES (2, '计算机网络')")
-    conn.execute("INSERT INTO decks (id, name) VALUES (3, '操作系统')")
-    conn.execute("INSERT INTO decks (id, name) VALUES (4, '数据库SQL')")
-    conn.execute("INSERT INTO decks (id, name) VALUES (5, '测试理论')")
-    conn.execute("INSERT INTO decks (id, name) VALUES (6, 'Linux基础')")
+    cur = get_cursor(conn)
+    cur.execute("INSERT INTO decks (id, name) VALUES (1, 'Python基础')")
+    cur.execute("INSERT INTO decks (id, name) VALUES (2, '计算机网络')")
+    cur.execute("INSERT INTO decks (id, name) VALUES (3, '操作系统')")
+    cur.execute("INSERT INTO decks (id, name) VALUES (4, '数据库SQL')")
+    cur.execute("INSERT INTO decks (id, name) VALUES (5, '测试理论')")
+    cur.execute("INSERT INTO decks (id, name) VALUES (6, 'Linux基础')")
+    # Reset sequence so next SERIAL id doesn't conflict
+    cur.execute("SELECT setval('decks_id_seq', 6)")
 
     cards = []
     # ── Python 基础 (30题) ──
@@ -250,25 +271,26 @@ def seed_default_data(conn):
     for c in linux:
         cards.append((c[0], 6, c[1], c[2], c[3], c[4]))
 
-    conn.executemany(
-        "INSERT INTO cards (id, deck_id, category, question, answer, tips) VALUES (?,?,?,?,?,?)",
+    cur.executemany(
+        "INSERT INTO cards (id, deck_id, category, question, answer, tips) VALUES (%s,%s,%s,%s,%s,%s)",
         cards
     )
-    conn.commit()
+    cur.close()
 
-# ── API Routes ──
 def seed_users(conn):
     """创建初始账号，账号密码从 .env 读取"""
+    cur = get_cursor(conn)
     users = [
         (os.environ.get("ADMIN1_USER", "admin"), os.environ.get("ADMIN1_PASS", "admin123")),
         (os.environ.get("ADMIN2_USER", ""), os.environ.get("ADMIN2_PASS", "")),
     ]
     for username, password in users:
         if username:
-            conn.execute(
-                "INSERT OR IGNORE INTO users (username, password_hash) VALUES (?, ?)",
+            cur.execute(
+                "INSERT INTO users (username, password_hash) VALUES (%s, %s) ON CONFLICT DO NOTHING",
                 (username, hash_pw(password))
             )
+    cur.close()
 
 # ── Auth ──
 @app.route("/api/login", methods=["POST"])
@@ -279,10 +301,13 @@ def login():
     if not username or not password:
         return jsonify({"error": "请填写账号和密码"}), 400
     conn = get_db()
-    user = conn.execute(
-        "SELECT id FROM users WHERE username=? AND password_hash=?",
+    cur = get_cursor(conn)
+    cur.execute(
+        "SELECT id FROM users WHERE username=%s AND password_hash=%s",
         (username, hash_pw(password))
-    ).fetchone()
+    )
+    user = cur.fetchone()
+    cur.close()
     conn.close()
     if not user:
         return jsonify({"error": "账号或密码错误"}), 401
@@ -292,14 +317,18 @@ def login():
 @app.route("/api/decks", methods=["GET"])
 def get_decks():
     conn = get_db()
-    decks = conn.execute("SELECT * FROM decks ORDER BY id").fetchall()
+    cur = get_cursor(conn)
+    cur.execute("SELECT * FROM decks ORDER BY id")
+    decks = cur.fetchall()
     result = []
     for d in decks:
-        cards = conn.execute(
-            "SELECT id, category, question as q, answer as a, tips FROM cards WHERE deck_id=? ORDER BY rowid",
+        cur.execute(
+            "SELECT id, category, question as q, answer as a, tips FROM cards WHERE deck_id=%s ORDER BY id",
             (d["id"],)
-        ).fetchall()
+        )
+        cards = cur.fetchall()
         result.append({"id": d["id"], "name": d["name"], "cards": [dict(c) for c in cards]})
+    cur.close()
     conn.close()
     return jsonify(result)
 
@@ -308,27 +337,29 @@ def get_decks():
 def create_deck():
     data = request.json
     conn = get_db()
-    cur = conn.execute("INSERT INTO decks (name) VALUES (?)", (data["name"],))
-    deck_id = cur.lastrowid
+    cur = get_cursor(conn)
+    cur.execute("INSERT INTO decks (name) VALUES (%s) RETURNING id", (data["name"],))
+    deck_id = cur.fetchone()["id"]
     if "cards" in data:
         for c in data["cards"]:
-            conn.execute(
-                "INSERT INTO cards (id, deck_id, category, question, answer, tips) VALUES (?,?,?,?,?,?)",
-                (c.get("id", f"c_{deck_id}_{hash(c['q'])}"), deck_id, c.get("category",""), c["q"], c["a"], c.get("tips",""))
+            cur.execute(
+                "INSERT INTO cards (id, deck_id, category, question, answer, tips) VALUES (%s,%s,%s,%s,%s,%s)",
+                (c.get("id", f"c_{deck_id}_{hashlib.md5(c['q'].encode()).hexdigest()[:8]}"), deck_id, c.get("category",""), c["q"], c["a"], c.get("tips",""))
             )
     conn.commit()
+    cur.close()
     conn.close()
     return jsonify({"id": deck_id, "name": data["name"]}), 201
 
 @app.route("/api/decks/<int:deck_id>", methods=["DELETE"])
 @require_auth
 def delete_deck(deck_id):
-    if deck_id <= 6:  # protect default decks... or allow?
-        pass
     conn = get_db()
-    conn.execute("DELETE FROM cards WHERE deck_id=?", (deck_id,))
-    conn.execute("DELETE FROM decks WHERE id=?", (deck_id,))
+    cur = get_cursor(conn)
+    cur.execute("DELETE FROM cards WHERE deck_id=%s", (deck_id,))
+    cur.execute("DELETE FROM decks WHERE id=%s", (deck_id,))
     conn.commit()
+    cur.close()
     conn.close()
     return jsonify({"ok": True})
 
@@ -337,11 +368,13 @@ def delete_deck(deck_id):
 def create_card():
     data = request.json
     conn = get_db()
-    conn.execute(
-        "INSERT OR REPLACE INTO cards (id, deck_id, category, question, answer, tips) VALUES (?,?,?,?,?,?)",
+    cur = get_cursor(conn)
+    cur.execute(
+        "INSERT INTO cards (id, deck_id, category, question, answer, tips) VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT (id) DO UPDATE SET category=EXCLUDED.category, question=EXCLUDED.question, answer=EXCLUDED.answer, tips=EXCLUDED.tips",
         (data.get("id", f"m_{hashlib.md5(data['q'].encode()).hexdigest()[:12]}"), data["deck_id"], data.get("category",""), data["q"], data["a"], data.get("tips",""))
     )
     conn.commit()
+    cur.close()
     conn.close()
     return jsonify({"ok": True}), 201
 
@@ -350,11 +383,13 @@ def create_card():
 def update_card(card_id):
     data = request.json
     conn = get_db()
-    conn.execute(
-        "UPDATE cards SET category=?, question=?, answer=?, tips=? WHERE id=?",
+    cur = get_cursor(conn)
+    cur.execute(
+        "UPDATE cards SET category=%s, question=%s, answer=%s, tips=%s WHERE id=%s",
         (data.get("category",""), data["q"], data["a"], data.get("tips",""), card_id)
     )
     conn.commit()
+    cur.close()
     conn.close()
     return jsonify({"ok": True})
 
@@ -362,8 +397,10 @@ def update_card(card_id):
 @require_auth
 def delete_card(card_id):
     conn = get_db()
-    conn.execute("DELETE FROM cards WHERE id=?", (card_id,))
+    cur = get_cursor(conn)
+    cur.execute("DELETE FROM cards WHERE id=%s", (card_id,))
     conn.commit()
+    cur.close()
     conn.close()
     return jsonify({"ok": True})
 
@@ -373,7 +410,10 @@ def get_scores():
     if not username:
         return jsonify({})
     conn = get_db()
-    rows = conn.execute("SELECT card_id, result FROM scores WHERE username = ?", (username,)).fetchall()
+    cur = get_cursor(conn)
+    cur.execute("SELECT card_id, result FROM scores WHERE username = %s", (username,))
+    rows = cur.fetchall()
+    cur.close()
     conn.close()
     return jsonify({r["card_id"]: r["result"] for r in rows})
 
@@ -384,11 +424,13 @@ def update_score():
         return jsonify({"error": "未登录"}), 401
     data = request.json
     conn = get_db()
-    conn.execute(
-        "INSERT OR REPLACE INTO scores (username, card_id, result, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)",
+    cur = get_cursor(conn)
+    cur.execute(
+        "INSERT INTO scores (username, card_id, result, updated_at) VALUES (%s, %s, %s, CURRENT_TIMESTAMP) ON CONFLICT (username, card_id) DO UPDATE SET result=EXCLUDED.result, updated_at=CURRENT_TIMESTAMP",
         (username, data["card_id"], data["result"])
     )
     conn.commit()
+    cur.close()
     conn.close()
     return jsonify({"ok": True})
 
@@ -396,11 +438,13 @@ def update_score():
 @require_auth
 def reset_all():
     conn = get_db()
-    conn.execute("DELETE FROM scores WHERE username = ?", (g.username,))
-    conn.execute("DELETE FROM cards")
-    conn.execute("DELETE FROM decks")
+    cur = get_cursor(conn)
+    cur.execute("DELETE FROM scores WHERE username = %s", (g.username,))
+    cur.execute("DELETE FROM cards")
+    cur.execute("DELETE FROM decks")
     seed_default_data(conn)
     conn.commit()
+    cur.close()
     conn.close()
     return jsonify({"ok": True})
 
@@ -446,9 +490,12 @@ def ai_proxy():
 @require_auth
 def list_notes():
     conn = get_db()
-    rows = conn.execute(
+    cur = get_cursor(conn)
+    cur.execute(
         "SELECT id, title, tags, uploaded_by, created_at, updated_at FROM notes ORDER BY created_at DESC"
-    ).fetchall()
+    )
+    rows = cur.fetchall()
+    cur.close()
     conn.close()
     return jsonify([dict(r) for r in rows])
 
@@ -457,12 +504,14 @@ def list_notes():
 def create_note():
     data = request.json
     conn = get_db()
-    cur = conn.execute(
-        "INSERT INTO notes (title, content, tags, uploaded_by) VALUES (?, ?, ?, ?)",
+    cur = get_cursor(conn)
+    cur.execute(
+        "INSERT INTO notes (title, content, tags, uploaded_by) VALUES (%s, %s, %s, %s) RETURNING id",
         (data["title"], data["content"], data.get("tags", ""), g.username)
     )
-    note_id = cur.lastrowid
+    note_id = cur.fetchone()["id"]
     conn.commit()
+    cur.close()
     conn.close()
     return jsonify({"id": note_id}), 201
 
@@ -470,7 +519,10 @@ def create_note():
 @require_auth
 def get_note(note_id):
     conn = get_db()
-    row = conn.execute("SELECT * FROM notes WHERE id=?", (note_id,)).fetchone()
+    cur = get_cursor(conn)
+    cur.execute("SELECT * FROM notes WHERE id=%s", (note_id,))
+    row = cur.fetchone()
+    cur.close()
     conn.close()
     if not row:
         return jsonify({"error": "Not found"}), 404
@@ -480,19 +532,24 @@ def get_note(note_id):
 @require_auth
 def update_note(note_id):
     conn = get_db()
-    row = conn.execute("SELECT uploaded_by FROM notes WHERE id=?", (note_id,)).fetchone()
+    cur = get_cursor(conn)
+    cur.execute("SELECT uploaded_by FROM notes WHERE id=%s", (note_id,))
+    row = cur.fetchone()
     if not row:
+        cur.close()
         conn.close()
         return jsonify({"error": "Not found"}), 404
     if row["uploaded_by"] != g.username:
+        cur.close()
         conn.close()
         return jsonify({"error": "无权限"}), 403
     data = request.json
-    conn.execute(
-        "UPDATE notes SET title=?, content=?, tags=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+    cur.execute(
+        "UPDATE notes SET title=%s, content=%s, tags=%s, updated_at=CURRENT_TIMESTAMP WHERE id=%s",
         (data["title"], data["content"], data.get("tags", ""), note_id)
     )
     conn.commit()
+    cur.close()
     conn.close()
     return jsonify({"ok": True})
 
@@ -500,15 +557,20 @@ def update_note(note_id):
 @require_auth
 def delete_note(note_id):
     conn = get_db()
-    row = conn.execute("SELECT uploaded_by FROM notes WHERE id=?", (note_id,)).fetchone()
+    cur = get_cursor(conn)
+    cur.execute("SELECT uploaded_by FROM notes WHERE id=%s", (note_id,))
+    row = cur.fetchone()
     if not row:
+        cur.close()
         conn.close()
         return jsonify({"error": "Not found"}), 404
     if row["uploaded_by"] != g.username:
+        cur.close()
         conn.close()
         return jsonify({"error": "无权限"}), 403
-    conn.execute("DELETE FROM notes WHERE id=?", (note_id,))
+    cur.execute("DELETE FROM notes WHERE id=%s", (note_id,))
     conn.commit()
+    cur.close()
     conn.close()
     return jsonify({"ok": True})
 
@@ -521,5 +583,4 @@ init_db()
 
 if __name__ == "__main__":
     print("🧠 八股文速记 running at http://localhost:5000")
-    print("   数据库:", DB_PATH)
     app.run(debug=False, host='0.0.0.0', port=5000, use_reloader=False)
