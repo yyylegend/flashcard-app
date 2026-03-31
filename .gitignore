@@ -37,3 +37,6 @@ Thumbs.db
 
 # Scripts (local only)
 scripts/
+
+# Local Docker overrides (not needed on server)
+docker-compose.override.yml
