@@ -33,7 +33,8 @@
 
 | 层 | 技术 |
 |----|------|
-| 前端 | React 19 + Vite 8 |
+| 前端 | React 19 + Vite |
+| 样式 | Tailwind CSS v4 + shadcn/ui |
 | 动画 | Framer Motion |
 | 图标 | Lucide React |
 | Markdown | Marked + Highlight.js + KaTeX |
@@ -54,17 +55,24 @@ flashcard-app/
 │   └── .env                # 环境变量（不提交）
 ├── frontend/
 │   ├── src/
+│   │   ├── components/
+│   │   │   ├── ui/         # shadcn/ui 基础组件（Button, Input, Textarea）
+│   │   │   └── modals/     # 业务弹窗（登录、卡片编辑、AI生成、导入、确认）
+│   │   ├── lib/
+│   │   │   ├── utils.js    # cn() Tailwind 工具函数
+│   │   │   ├── jsonRepair.js  # AI 返回 JSON 修复
+│   │   │   └── fileLoaders.js # PDF/DOCX 文件解析
 │   │   ├── App.jsx         # 主应用组件（闪卡、测试、错题回顾）
 │   │   ├── Notes.jsx       # 笔记模块
 │   │   ├── api.js          # 后端 API 封装
-│   │   ├── index.css       # 全局样式 & CSS 变量主题
+│   │   ├── index.css       # 全局样式 & CSS 变量主题（Tailwind v4）
 │   │   └── main.jsx        # 入口
 │   ├── nginx.conf          # Nginx 配置
+│   ├── components.json     # shadcn/ui 配置
+│   ├── jsconfig.json       # 路径别名配置
 │   ├── Dockerfile
 │   ├── index.html
 │   └── package.json
-├── scripts/
-│   └── migrate_sqlite_to_pg.py  # SQLite → PostgreSQL 迁移脚本
 ├── docker-compose.yml      # 编排前端 + 后端 + 数据库
 ├── deploy.sh               # 服务器一键部署脚本
 └── README.md
@@ -88,7 +96,7 @@ ADMIN2_PASS=
 ### 2. 启动
 
 ```bash
-docker-compose up --build
+docker compose up --build -d
 ```
 
 访问 `http://localhost`，首次启动自动建表并导入默认题库（80题）。
@@ -96,10 +104,15 @@ docker-compose up --build
 ### 3. 后续更新
 
 ```bash
-docker-compose up --build
+docker compose build frontend   # 仅重建前端
+docker compose up -d            # 重启容器
 ```
 
-只有代码改动时才需要 `--build`，否则直接 `docker-compose up`。
+或一次重建全部：
+
+```bash
+docker compose up --build -d
+```
 
 ## 部署到服务器
 
@@ -118,7 +131,7 @@ git checkout dev
 nano backend/.env
 
 # 启动
-docker-compose up --build -d
+docker compose up --build -d
 ```
 
 ### 一键更新部署

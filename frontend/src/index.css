@@ -1,3 +1,7 @@
+@import "tailwindcss";
+
+@variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 :root {
   --text: #6b6375;
   --text-h: #08060d;
@@ -26,6 +30,31 @@
   --card-bg:    #ffffff;
   --text-color: #333333;
   --accent-soft:#eef2ff;
+  --nav-bg:     #3a3f5c;
+  --nav-text:   #ffffff;
+  --nav-text-muted: rgba(255,255,255,0.7);
+  --nav-border: rgba(0,0,0,0.25);
+  --nav-active-bg: rgba(255,255,255,0.2);
+  --nav-active-border: #ffffff;
+  --nav-separator: rgba(255,255,255,0.25);
+
+  /* shadcn/ui semantic variables (light mode) */
+  --background: 0 0% 100%;
+  --foreground: 222 47% 11%;
+  --primary: 239 84% 67%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 40% 96%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 16% 47%;
+  --accent: 210 40% 96%;
+  --accent-foreground: 222 47% 11%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --ring: 239 84% 67%;
+  --radius: 0.5rem;
 
   font: 18px/145% var(--sans);
   letter-spacing: 0.18px;
@@ -43,16 +72,44 @@
 }
 
 [data-theme="dark"] {
-  --page-bg:    #0f1117;
-  --surface:    #1a1d2e;
-  --surface-2:  #20243a;
-  --app-border: #2e3148;
-  --text-1:     #f1f2f6;
-  --text-2:     #c9cdd8;
-  --text-3:     #6b7280;
-  --card-bg:    #1a1d2e;
-  --text-color: #d1d5db;
-  --accent-soft:#1e2040;
+  --page-bg:    #2b2b2b;
+  --surface:    #3a3a3a;
+  --surface-2:  #333333;
+  --app-border: #555555;
+  --text-1:     #e8e8e8;
+  --text-2:     #c0c0c0;
+  --text-3:     #909090;
+  --card-bg:    #3a3a3a;
+  --text-color: #e8e8e8;
+  --accent:     #6b82bb;
+  --accent-bg:  rgba(107, 130, 187, 0.15);
+  --accent-border: rgba(107, 130, 187, 0.4);
+  --accent-soft:#353a4a;
+  --nav-bg:     #4f5b93;
+  --nav-text:   #ffffff;
+  --nav-text-muted: rgba(255,255,255,0.7);
+  --nav-border: rgba(0,0,0,0.35);
+  --nav-active-bg: rgba(255,255,255,0.2);
+  --nav-active-border: #ffffff;
+  --nav-separator: rgba(255,255,255,0.25);
+
+  /* shadcn/ui semantic variables (dark mode) */
+  --background: 222 47% 11%;
+  --foreground: 213 31% 95%;
+  --primary: 239 84% 67%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 222 47% 18%;
+  --secondary-foreground: 213 31% 91%;
+  --muted: 222 47% 18%;
+  --muted-foreground: 215 16% 57%;
+  --accent: 222 47% 18%;
+  --accent-foreground: 213 31% 91%;
+  --destructive: 0 63% 31%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 216 34% 30%;
+  --input: 216 34% 30%;
+  --ring: 239 84% 67%;
+
   color-scheme: dark;
 }
 
@@ -73,6 +130,16 @@
 
   #social .button-icon {
     filter: invert(1) brightness(2);
+  }
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
   }
 }
 
@@ -201,3 +268,41 @@ code {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+@keyframes pulse-border {
+  0%, 100% { border-color: var(--app-border, #e5e7eb); box-shadow: none; }
+  50% { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.2); }
+}
+
+/* ── Fill-sweep buttons ── */
+.btn-fill {
+  position: relative;
+  overflow: hidden;
+  transition: color 0.25s ease;
+  z-index: 0;
+}
+.btn-fill::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-101%);
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: -1;
+}
+.btn-fill:hover::before { transform: translateX(0); }
+
+/* 次要按钮：靛蓝填充 */
+.btn-fill-indigo::before  { background: #6366f1; }
+.btn-fill-indigo:hover    { color: #fff !important; border-color: #6366f1 !important; }
+
+/* 主按钮：深紫填充 */
+.btn-fill-primary::before { background: #4f46e5; }
+.btn-fill-primary:hover   { color: #fff !important; }
+
+/* 危险按钮：红色填充 */
+.btn-fill-danger::before  { background: #dc2626; }
+.btn-fill-danger:hover    { color: #fff !important; border-color: #fca5a5 !important; }
+
+/* 成功按钮：绿色填充 */
+.btn-fill-success::before { background: #16a34a; }
+.btn-fill-success:hover   { color: #fff !important; border-color: #86efac !important; }

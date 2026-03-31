@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { FilePlus, Upload, Sparkles, Pencil, Trash2, Eye, EyeOff, Lock, Loader2, FileText } from "lucide-react";
+import { FilePlus, Upload, Sparkles, Pencil, Trash2, Eye, Lock, Loader2, FileText } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { Marked } from "marked";
 import { markedHighlight } from "marked-highlight";
@@ -8,24 +8,22 @@ import hljs from "highlight.js";
 import "highlight.js/styles/github-dark.css";
 import "katex/dist/katex.min.css";
 import { fetchNotes, fetchNote, createNote, updateNote, deleteNote, getToken } from "./api";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
-// ── Build a fresh Marked instance with heading IDs + highlight.js + KaTeX ──
 function renderMd(content) {
   const counts = {};
   const instance = new Marked();
   instance.use(markedHighlight({
     langPrefix: "hljs language-",
     highlight(code, lang) {
-      if (lang && hljs.getLanguage(lang)) {
-        return hljs.highlight(code, { language: lang }).value;
-      }
+      if (lang && hljs.getLanguage(lang)) return hljs.highlight(code, { language: lang }).value;
       return hljs.highlight(code, { language: "plaintext", ignoreIllegals: true }).value;
     }
   }));
   instance.use(markedKatex({ throwOnError: false, output: "html" }));
   instance.use({
-    breaks: true,
-    gfm: true,
+    breaks: true, gfm: true,
     renderer: {
       heading({ text, depth }) {
         const clean = text.replace(/<[^>]+>/g, "");
@@ -39,10 +37,8 @@ function renderMd(content) {
   return instance.parse(content || "");
 }
 
-// ── Extract h2-only headings, skip code blocks ──
 function extractHeadings(md) {
-  const headings = [];
-  const counts = {};
+  const headings = [], counts = {};
   let inCode = false;
   for (const line of (md || "").split("\n")) {
     if (line.trimStart().startsWith("```")) { inCode = !inCode; continue; }
@@ -58,19 +54,21 @@ function extractHeadings(md) {
   return headings;
 }
 
-const btnP = { background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "#fff", border: "none", borderRadius: 8, padding: "7px 16px", fontWeight: 600, cursor: "pointer", fontSize: 13, boxShadow: "0 2px 8px rgba(99,102,241,.25)" };
-const btnG = { background: "var(--surface,#fff)", color: "var(--text-2,#374151)", border: "1px solid var(--app-border,#e5e7eb)", borderRadius: 8, padding: "6px 14px", fontWeight: 500, cursor: "pointer", fontSize: 13 };
-const btnR = { background: "#fee2e2", color: "#b91c1c", border: "1px solid #fecaca", borderRadius: 8, padding: "6px 14px", fontWeight: 500, cursor: "pointer", fontSize: 13 };
-const inp = { border: "1px solid var(--app-border,#e5e7eb)", borderRadius: 8, padding: "8px 12px", fontSize: 14, outline: "none", width: "100%", boxSizing: "border-box", fontFamily: "inherit", background: "var(--surface,#fff)", color: "var(--text-2,#374151)" };
-
 function ConfirmDlg({ message, onConfirm, onCancel }) {
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000 }}>
-      <div style={{ background: "var(--surface,#fff)", borderRadius: 14, padding: 28, maxWidth: 360, width: "90%", boxShadow: "0 8px 40px rgba(0,0,0,.18)" }}>
-        <p style={{ margin: "0 0 22px", fontSize: 15, color: "var(--text-2,#374151)", lineHeight: 1.5 }}>{message}</p>
-        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-          <button onClick={onCancel} style={btnG}>取消</button>
-          <button onClick={onConfirm} style={{ ...btnP, background: "#ef4444", boxShadow: "none" }}>确认删除</button>
+    <div className="fixed inset-0 bg-black/45 flex items-center justify-center z-2000">
+      <div className="rounded-xl p-7 max-w-sm w-[90%] shadow-[0_8px_40px_rgba(0,0,0,0.18)]" style={{ background: "var(--surface,#fff)" }}>
+        <p className="m-0 mb-5.5 text-[15px] leading-normal" style={{ color: "var(--text-2,#374151)" }}>{message}</p>
+        <div className="flex gap-2.5 justify-end">
+          <button onClick={onCancel}
+            className="btn-fill btn-fill-indigo px-3.5 py-1.5 rounded-lg border text-[13px] font-medium cursor-pointer"
+            style={{ background: "var(--surface,#fff)", color: "var(--text-2,#374151)", borderColor: "var(--app-border,#e5e7eb)" }}>
+            取消
+          </button>
+          <button onClick={onConfirm}
+            className="btn-fill btn-fill-danger px-3.5 py-1.5 rounded-lg border-0 text-[13px] font-semibold cursor-pointer bg-red-500 text-white">
+            确认删除
+          </button>
         </div>
       </div>
     </div>
@@ -79,38 +77,27 @@ function ConfirmDlg({ message, onConfirm, onCancel }) {
 
 function TagBadge({ tag }) {
   return (
-    <span style={{ background: "#eef2ff", color: "#4f46e5", borderRadius: 20, padding: "2px 10px", fontSize: 12, fontWeight: 500 }}>
+    <span className="bg-[#eef2ff] text-indigo-600 rounded-[20px] px-2.5 py-0.5 text-[12px] font-medium">
       #{tag.trim()}
     </span>
   );
 }
 
-// ── Table of Contents sidebar (h2 only) ──
 function TocPanel({ headings, activeSlug }) {
   if (!headings.length) return null;
   return (
-    <div style={{ width: 160, flexShrink: 0, position: "sticky", top: 20, alignSelf: "flex-start", background: "var(--surface,#fff)", borderRadius: 12, border: "1px solid var(--app-border,#e5e7eb)", padding: "14px 12px", maxHeight: "80vh", overflowY: "auto" }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3,#aaa)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>目录</div>
+    <div className="w-40 shrink-0 sticky top-5 self-start rounded-xl border p-3.5 max-h-[80vh] overflow-y-auto"
+      style={{ background: "var(--surface,#fff)", borderColor: "var(--app-border,#e5e7eb)" }}>
+      <div className="text-[11px] font-bold tracking-[0.08em] uppercase mb-2.5" style={{ color: "var(--text-3,#aaa)" }}>目录</div>
       {headings.map((h, i) => (
-        <div
-          key={i}
-          onClick={() => {
-            const el = document.getElementById(h.slug);
-            if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-          }}
+        <div key={i}
+          onClick={() => document.getElementById(h.slug)?.scrollIntoView({ behavior: "smooth", block: "start" })}
+          className="px-2 py-1.25 text-[12px] leading-[1.45] cursor-pointer rounded-[5px] mb-0.5 break-all transition-colors"
           style={{
-            padding: "5px 8px",
-            fontSize: 12,
-            lineHeight: 1.45,
-            cursor: "pointer",
-            borderRadius: 5,
             color: activeSlug === h.slug ? "#6366f1" : "var(--text-2,#555)",
             fontWeight: activeSlug === h.slug ? 600 : 400,
             background: activeSlug === h.slug ? "var(--accent-soft,#eef2ff)" : "transparent",
-            marginBottom: 2,
-            wordBreak: "break-all",
-          }}
-        >
+          }}>
           {h.text}
         </div>
       ))}
@@ -143,12 +130,11 @@ export default function NotesView({ authed, authUser, onImportCards }) {
     try {
       const data = await fetchNotes();
       setNotes(Array.isArray(data) ? data : []);
-    } catch (e) { console.error(e); }
+    } catch (err) { console.error(err); }
   }, [authed]);
 
   useEffect(() => { loadNotes(); }, [loadNotes]);
 
-  // Track active heading via IntersectionObserver
   useEffect(() => {
     if (!note || editing) return;
     const headings = document.querySelectorAll(".md-preview h1, .md-preview h2, .md-preview h3, .md-preview h4");
@@ -165,23 +151,15 @@ export default function NotesView({ authed, authUser, onImportCards }) {
   }, [note, editing]);
 
   const openNote = async (id) => {
-    setCreating(false);
-    setEditing(false);
-    setSelected(id);
-    setGenMsg("");
-    setActiveSlug("");
-    setLoadingNote(true);
-    try {
-      const data = await fetchNote(id);
-      setNote(data);
-    } catch (e) { console.error(e); }
+    setCreating(false); setEditing(false); setSelected(id);
+    setGenMsg(""); setActiveSlug(""); setLoadingNote(true);
+    try { setNote(await fetchNote(id)); } catch (err) { console.error(err); }
     setLoadingNote(false);
   };
 
   const startEdit = () => {
     setEditData({ title: note.title, content: note.content, tags: note.tags || "" });
-    setPreview(false);
-    setEditing(true);
+    setPreview(false); setEditing(true);
   };
 
   const saveEdit = async () => {
@@ -198,9 +176,7 @@ export default function NotesView({ authed, authUser, onImportCards }) {
       onConfirm: async () => {
         await deleteNote(note.id);
         setNotes(notes.filter(n => n.id !== note.id));
-        setSelected(null);
-        setNote(null);
-        setDlg(null);
+        setSelected(null); setNote(null); setDlg(null);
       }
     });
   };
@@ -217,13 +193,9 @@ export default function NotesView({ authed, authUser, onImportCards }) {
   };
 
   const startCreate = () => {
-    setCreating(true);
-    setSelected(null);
-    setNote(null);
-    setEditing(false);
-    setPreview(false);
-    setEditData({ title: "", content: "", tags: "" });
-    setGenMsg("");
+    setCreating(true); setSelected(null); setNote(null);
+    setEditing(false); setPreview(false);
+    setEditData({ title: "", content: "", tags: "" }); setGenMsg("");
   };
 
   const saveCreate = async () => {
@@ -243,20 +215,16 @@ export default function NotesView({ authed, authUser, onImportCards }) {
       const resp = await fetch(`${import.meta.env.VITE_API_BASE}/api/ai`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getToken()}` },
-        body: JSON.stringify({
-          mode: "notes",
-          note_title: note.title,
-          content: note.content.slice(0, 15000),
-        })
+        body: JSON.stringify({ mode: "notes", note_title: note.title, content: note.content.slice(0, 15000) })
       });
       const data = await resp.json();
       const raw = data.result || "";
       let cards = null;
       const cleaned = raw.replace(/```json|```/g, "").trim();
-      try { cards = JSON.parse(cleaned); } catch (_) { void _; }
+      try { cards = JSON.parse(cleaned); } catch { void 0; }
       if (!Array.isArray(cards)) {
         const a = cleaned.indexOf("[");
-        if (a >= 0) { try { cards = JSON.parse(cleaned.slice(a)); } catch (_) { void _; } }
+        if (a >= 0) { try { cards = JSON.parse(cleaned.slice(a)); } catch { void 0; } }
       }
       if (Array.isArray(cards) && cards.length > 0) {
         onImportCards(cards, note.title);
@@ -264,196 +232,212 @@ export default function NotesView({ authed, authUser, onImportCards }) {
       } else {
         setGenMsg("❌ 生成失败，请检查 AI 配置或重试");
       }
-    } catch (e) {
-      setGenMsg("❌ 出错: " + e.message);
+    } catch (err) {
+      setGenMsg("❌ 出错: " + err.message);
     }
     setGenLoading(false);
   };
 
-  // Memoize rendered HTML and headings to avoid re-renders
   const viewContent = note?.content || "";
   const renderedHtml = useMemo(() => renderMd(viewContent), [viewContent]);
   const tocHeadings = useMemo(() => extractHeadings(viewContent), [viewContent]);
-
-  const editContent = editData.content;
-  const renderedEditHtml = useMemo(() => renderMd(editContent), [editContent]);
+  const renderedEditHtml = useMemo(() => renderMd(editData.content), [editData.content]);
 
   if (!authed) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 300, color: "var(--text-3,#9ca3af)", gap: 12 }}>
-        <Lock size={40} strokeWidth={1.5}/>
-        <div style={{ fontSize: 15 }}>请先登录后查看笔记</div>
+      <div className="flex flex-col items-center justify-center h-75 gap-3" style={{ color: "var(--text-3,#9ca3af)" }}>
+        <Lock size={40} strokeWidth={1.5} />
+        <div className="text-[15px]">请先登录后查看笔记</div>
       </div>
     );
   }
 
   const showToc = !creating && !editing && note && tocHeadings.length > 0;
 
+  // shared input classes
+  const inputCls = "bg-[var(--surface,#fff)] text-[var(--text-2,#374151)] border-[var(--app-border,#e5e7eb)]";
+
   return (
-    <div style={{ display: "flex", gap: 20, alignItems: "flex-start", width: "100%" }}>
+    <div className="flex gap-5 items-start w-full">
       {dlg && <ConfirmDlg message={dlg.message} onConfirm={dlg.onConfirm} onCancel={() => setDlg(null)} />}
 
-      {/* ── Left sidebar: note list ── */}
-      <div style={{ width: 220, flexShrink: 0, background: "var(--surface,#fff)", borderRadius: 12, border: "1px solid var(--app-border,#e5e7eb)", padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-        <div style={{ display: "flex", gap: 6, marginBottom: 4 }}>
-          <button onClick={startCreate} style={{ ...btnP, flex: 1, padding: "7px 8px", fontSize: 12, display:"inline-flex", alignItems:"center", justifyContent:"center", gap:5 }}><FilePlus size={13}/> 新建</button>
-          <label style={{ ...btnG, padding: "7px 10px", fontSize: 12, cursor: "pointer", display: "inline-flex", alignItems:"center", gap:5 }}>
-            <Upload size={13}/> 上传
-            <input type="file" accept=".md" style={{ display: "none" }} onChange={handleFileUpload} />
+      {/* ── Left sidebar ── */}
+      <div className="w-55 shrink-0 rounded-xl border p-3 flex flex-col gap-2"
+        style={{ background: "var(--surface,#fff)", borderColor: "var(--app-border,#e5e7eb)" }}>
+        <div className="flex gap-1.5 mb-1">
+          <button onClick={startCreate}
+            className="btn-fill btn-fill-primary flex-1 inline-flex items-center justify-center gap-1.5 py-1.75 px-2 rounded-lg border-0 text-[12px] font-semibold cursor-pointer text-white shadow-[0_2px_8px_rgba(99,102,241,.25)]"
+            style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)" }}>
+            <FilePlus size={13} /> 新建
+          </button>
+          <label className="inline-flex items-center justify-center gap-1.5 py-[7px] px-2.5 rounded-lg border text-[12px] font-medium cursor-pointer"
+            style={{ background: "var(--surface,#fff)", color: "var(--text-2,#374151)", borderColor: "var(--app-border,#e5e7eb)" }}>
+            <Upload size={13} /> 上传
+            <input type="file" accept=".md" className="hidden" onChange={handleFileUpload} />
           </label>
         </div>
 
-        {notes.length === 0 ? (
-          <div style={{ color: "var(--text-3,#9ca3af)", fontSize: 13, textAlign: "center", padding: "24px 0" }}>暂无笔记</div>
-        ) : (
-          notes.map(n => (
-            <div
-              key={n.id}
-              onClick={() => openNote(n.id)}
+        {notes.length === 0
+          ? <div className="text-[13px] text-center py-6" style={{ color: "var(--text-3,#9ca3af)" }}>暂无笔记</div>
+          : notes.map(n => (
+            <div key={n.id} onClick={() => openNote(n.id)}
+              className="px-3 py-2.5 rounded-xl cursor-pointer border transition-colors"
               style={{
-                padding: "10px 12px", borderRadius: 8, cursor: "pointer",
                 background: selected === n.id ? "var(--accent-soft,#eef2ff)" : "var(--surface-2,#f9fafb)",
-                border: `1px solid ${selected === n.id ? "#a5b4fc" : "var(--app-border,#f3f4f6)"}`,
-              }}
-            >
-              <div style={{ fontWeight: 600, fontSize: 13, color: "var(--text-1,#111)", marginBottom: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {n.title}
-              </div>
-              <div style={{ fontSize: 11, color: "var(--text-3,#9ca3af)" }}>{n.uploaded_by} · {fmtDate(n.created_at)}</div>
+                borderColor: selected === n.id ? "#a5b4fc" : "var(--app-border,#f3f4f6)",
+              }}>
+              <div className="font-semibold text-[13px] whitespace-nowrap overflow-hidden text-ellipsis mb-0.5"
+                style={{ color: "var(--text-1,#111)" }}>{n.title}</div>
+              <div className="text-[11px]" style={{ color: "var(--text-3,#9ca3af)" }}>{n.uploaded_by} · {fmtDate(n.created_at)}</div>
               {n.tags && (
-                <div style={{ fontSize: 11, color: "#6366f1", marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                <div className="text-[11px] text-indigo-500 mt-0.75 whitespace-nowrap overflow-hidden text-ellipsis">
                   {n.tags.split(",").filter(t => t.trim()).map(t => `#${t.trim()}`).join(" ")}
                 </div>
               )}
             </div>
           ))
-        )}
+        }
       </div>
 
       {/* ── Center: note content ── */}
-      <div style={{ flex: 1, background: "var(--surface,#fff)", borderRadius: 12, border: "1px solid var(--app-border,#e5e7eb)", padding: 28, minHeight: 460, minWidth: 0 }}>
+      <div className="flex-1 min-w-0 rounded-xl border p-7 min-h-115"
+        style={{ background: "var(--surface,#fff)", borderColor: "var(--app-border,#e5e7eb)" }}>
 
-        {/* Creating new note */}
+        {/* Creating */}
         {creating && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "var(--text-1,#111)", marginBottom: 4, display:"flex", alignItems:"center", gap:7 }}><FilePlus size={16}/> 新建笔记</div>
-            <input value={editData.title} onChange={e => setEditData(d => ({ ...d, title: e.target.value }))}
-              placeholder="笔记标题 *" style={inp} autoFocus />
-            <input value={editData.tags} onChange={e => setEditData(d => ({ ...d, tags: e.target.value }))}
-              placeholder="标签（逗号分隔，如：Python, 算法）" style={inp} />
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-2,#374151)" }}>内容（Markdown）</span>
-              <button onClick={() => setPreview(p => !p)} style={{ ...btnG, padding: "3px 10px", fontSize: 12, display:"inline-flex", alignItems:"center", gap:4 }}>
-                {preview ? <><Pencil size={12}/> 编辑</> : <><Eye size={12}/> 预览</>}
+          <div className="flex flex-col gap-3">
+            <div className="text-[16px] font-bold mb-1 flex items-center gap-1.5" style={{ color: "var(--text-1,#111)" }}>
+              <FilePlus size={16} /> 新建笔记
+            </div>
+            <Input value={editData.title} onChange={e => setEditData(d => ({ ...d, title: e.target.value }))}
+              placeholder="笔记标题 *" className={inputCls} autoFocus />
+            <Input value={editData.tags} onChange={e => setEditData(d => ({ ...d, tags: e.target.value }))}
+              placeholder="标签（逗号分隔，如：Python, 算法）" className={inputCls} />
+            <div className="flex items-center gap-2">
+              <span className="text-[13px] font-semibold" style={{ color: "var(--text-2,#374151)" }}>内容（Markdown）</span>
+              <button onClick={() => setPreview(p => !p)}
+                className="btn-fill btn-fill-indigo inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[12px] cursor-pointer"
+                style={{ background: "var(--surface,#fff)", color: "var(--text-2,#374151)", borderColor: "var(--app-border,#e5e7eb)" }}>
+                {preview ? <><Pencil size={12} /> 编辑</> : <><Eye size={12} /> 预览</>}
               </button>
             </div>
-            {preview ? (
-              <div className="md-preview" style={{ border: "1px solid var(--app-border,#e5e7eb)", borderRadius: 8, padding: 16, minHeight: 200 }}
-                dangerouslySetInnerHTML={{ __html: renderedEditHtml }} />
-            ) : (
-              <textarea value={editData.content} onChange={e => setEditData(d => ({ ...d, content: e.target.value }))}
-                placeholder="在此输入 Markdown 内容，支持数学公式 $E=mc^2$ 或 $$\sum$$" rows={14}
-                style={{ ...inp, fontFamily: "Menlo,Monaco,Consolas,monospace", fontSize: 13, resize: "vertical", lineHeight: 1.65 }} />
-            )}
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={saveCreate} disabled={!editData.title.trim()} style={{ ...btnP, opacity: editData.title.trim() ? 1 : .5 }}>保存</button>
-              <button onClick={() => setCreating(false)} style={btnG}>取消</button>
+            {preview
+              ? <div className="md-preview border rounded-lg p-4 min-h-50"
+                  style={{ borderColor: "var(--app-border,#e5e7eb)" }}
+                  dangerouslySetInnerHTML={{ __html: renderedEditHtml }} />
+              : <Textarea value={editData.content} onChange={e => setEditData(d => ({ ...d, content: e.target.value }))}
+                  placeholder="在此输入 Markdown 内容，支持数学公式 $E=mc^2$ 或 $$\sum$$" rows={14}
+                  className={`${inputCls} font-mono text-[13px] resize-y leading-relaxed`} />
+            }
+            <div className="flex gap-2">
+              <button onClick={saveCreate} disabled={!editData.title.trim()}
+                className="btn-fill btn-fill-primary px-4 py-1.5 rounded-lg border-0 text-[13px] font-semibold cursor-pointer text-white disabled:opacity-50"
+                style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)" }}>保存</button>
+              <button onClick={() => setCreating(false)}
+                className="btn-fill btn-fill-indigo px-4 py-1.5 rounded-lg border text-[13px] font-medium cursor-pointer"
+                style={{ background: "var(--surface,#fff)", color: "var(--text-2,#374151)", borderColor: "var(--app-border,#e5e7eb)" }}>取消</button>
             </div>
           </div>
         )}
 
-        {/* Note view / edit */}
+        {/* View / edit */}
         {!creating && note && !loadingNote && (
           <div>
             {/* Header */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14, gap: 12 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                {editing ? (
-                  <input value={editData.title} onChange={e => setEditData(d => ({ ...d, title: e.target.value }))}
-                    style={{ ...inp, fontSize: 18, fontWeight: 700 }} autoFocus />
-                ) : (
-                  <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "var(--text-1,#111)", wordBreak: "break-word" }}>{note.title}</h2>
-                )}
-                <div style={{ fontSize: 12, color: "var(--text-3,#9ca3af)", marginTop: 5 }}>
-                  上传者: <span style={{ color: "#6366f1", fontWeight: 600 }}>{note.uploaded_by}</span>
+            <div className="flex justify-between items-start mb-3.5 gap-3">
+              <div className="flex-1 min-w-0">
+                {editing
+                  ? <Input value={editData.title} onChange={e => setEditData(d => ({ ...d, title: e.target.value }))}
+                      className={`${inputCls} text-[18px] font-bold`} autoFocus />
+                  : <h2 className="m-0 text-[20px] font-extrabold wrap-break-word" style={{ color: "var(--text-1,#111)" }}>{note.title}</h2>
+                }
+                <div className="text-[12px] mt-1.25" style={{ color: "var(--text-3,#9ca3af)" }}>
+                  上传者: <span className="text-indigo-500 font-semibold">{note.uploaded_by}</span>
                   &nbsp;· {fmtDate(note.created_at)}
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 6, flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                {!editing && (
-                  <>
-                    <button onClick={generateCards} disabled={genLoading}
-                      style={{ ...btnG, borderColor: "#6366f1", color: "#6366f1", opacity: genLoading ? .6 : 1, display:"inline-flex", alignItems:"center", gap:5 }}>
-                      {genLoading ? <><Loader2 size={13} style={{animation:"spin 1s linear infinite"}}/> 生成中...</> : <><Sparkles size={13}/> 生成闪卡</>}
+              <div className="flex gap-1.5 shrink-0 flex-wrap justify-end">
+                {!editing && <>
+                  <button onClick={generateCards} disabled={genLoading}
+                    className="btn-fill btn-fill-indigo inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[13px] font-medium cursor-pointer disabled:opacity-60 text-indigo-500"
+                    style={{ background: "var(--surface,#fff)", borderColor: "#6366f1" }}>
+                    {genLoading ? <><Loader2 size={13} className="animate-spin" /> 生成中...</> : <><Sparkles size={13} /> 生成闪卡</>}
+                  </button>
+                  {note.uploaded_by === authUser && <>
+                    <button onClick={startEdit}
+                      className="btn-fill btn-fill-indigo inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[13px] font-medium cursor-pointer"
+                      style={{ background: "var(--surface,#fff)", color: "var(--text-2,#374151)", borderColor: "var(--app-border,#e5e7eb)" }}>
+                      <Pencil size={13} /> 编辑
                     </button>
-                    {note.uploaded_by === authUser && (
-                      <>
-                        <button onClick={startEdit} style={{ ...btnG, display:"inline-flex", alignItems:"center", gap:5 }}><Pencil size={13}/> 编辑</button>
-                        <button onClick={handleDelete} style={{ ...btnR, display:"inline-flex", alignItems:"center", gap:5 }}><Trash2 size={13}/> 删除</button>
-                      </>
-                    )}
-                  </>
-                )}
-                {editing && (
-                  <>
-                    <button onClick={() => setPreview(p => !p)} style={{ ...btnG, display:"inline-flex", alignItems:"center", gap:5 }}>{preview ? <><Pencil size={13}/> 编辑</> : <><Eye size={13}/> 预览</>}</button>
-                    <button onClick={saveEdit} style={btnP}>保存</button>
-                    <button onClick={() => setEditing(false)} style={btnG}>取消</button>
-                  </>
-                )}
+                    <button onClick={handleDelete}
+                      className="btn-fill btn-fill-danger inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[13px] font-medium cursor-pointer bg-red-50 text-red-700 border-red-200">
+                      <Trash2 size={13} /> 删除
+                    </button>
+                  </>}
+                </>}
+                {editing && <>
+                  <button onClick={() => setPreview(p => !p)}
+                    className="btn-fill btn-fill-indigo inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[13px] font-medium cursor-pointer"
+                    style={{ background: "var(--surface,#fff)", color: "var(--text-2,#374151)", borderColor: "var(--app-border,#e5e7eb)" }}>
+                    {preview ? <><Pencil size={13} /> 编辑</> : <><Eye size={13} /> 预览</>}
+                  </button>
+                  <button onClick={saveEdit}
+                    className="btn-fill btn-fill-primary px-4 py-1.5 rounded-lg border-0 text-[13px] font-semibold cursor-pointer text-white"
+                    style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)" }}>保存</button>
+                  <button onClick={() => setEditing(false)}
+                    className="btn-fill btn-fill-indigo px-3 py-1.5 rounded-lg border text-[13px] font-medium cursor-pointer"
+                    style={{ background: "var(--surface,#fff)", color: "var(--text-2,#374151)", borderColor: "var(--app-border,#e5e7eb)" }}>取消</button>
+                </>}
               </div>
             </div>
 
             {/* Tags */}
-            {editing ? (
-              <input value={editData.tags} onChange={e => setEditData(d => ({ ...d, tags: e.target.value }))}
-                placeholder="标签（逗号分隔）" style={{ ...inp, marginBottom: 14, fontSize: 13 }} />
-            ) : (
-              note.tags && note.tags.trim() && (
-                <div style={{ marginBottom: 14, display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {editing
+              ? <Input value={editData.tags} onChange={e => setEditData(d => ({ ...d, tags: e.target.value }))}
+                  placeholder="标签（逗号分隔）" className={`${inputCls} mb-3.5 text-[13px]`} />
+              : note.tags?.trim() && (
+                <div className="mb-3.5 flex gap-1.5 flex-wrap">
                   {note.tags.split(",").filter(t => t.trim()).map((t, i) => <TagBadge key={i} tag={t} />)}
                 </div>
               )
-            )}
+            }
 
             {/* Gen message */}
             {genMsg && (
-              <div style={{
-                marginBottom: 14, padding: "9px 14px", borderRadius: 8, fontSize: 13,
-                background: genMsg.startsWith("✅") ? "#f0fdf4" : genMsg.startsWith("🤖") ? "#eff6ff" : "#fef2f2",
-                border: `1px solid ${genMsg.startsWith("✅") ? "#bbf7d0" : genMsg.startsWith("🤖") ? "#bfdbfe" : "#fecaca"}`,
-                color: genMsg.startsWith("✅") ? "#065f46" : genMsg.startsWith("🤖") ? "#1d4ed8" : "#b91c1c",
-              }}>
+              <div className="mb-3.5 px-3.5 py-2.5 rounded-lg text-[13px]"
+                style={{
+                  background: genMsg.startsWith("✅") ? "#f0fdf4" : genMsg.startsWith("🤖") ? "#eff6ff" : "#fef2f2",
+                  border: `1px solid ${genMsg.startsWith("✅") ? "#bbf7d0" : genMsg.startsWith("🤖") ? "#bfdbfe" : "#fecaca"}`,
+                  color: genMsg.startsWith("✅") ? "#065f46" : genMsg.startsWith("🤖") ? "#1d4ed8" : "#b91c1c",
+                }}>
                 {genMsg}
               </div>
             )}
 
             {/* Content */}
-            {editing ? (
-              preview ? (
-                <div className="md-preview" style={{ border: "1px solid var(--app-border,#e5e7eb)", borderRadius: 8, padding: 20, minHeight: 300 }}
-                  dangerouslySetInnerHTML={{ __html: renderedEditHtml }} />
-              ) : (
-                <textarea value={editData.content} onChange={e => setEditData(d => ({ ...d, content: e.target.value }))}
-                  rows={22} style={{ ...inp, fontFamily: "Menlo,Monaco,Consolas,monospace", fontSize: 13, resize: "vertical", lineHeight: 1.65 }} />
-              )
-            ) : (
-              <div className="md-preview" dangerouslySetInnerHTML={{ __html: renderedHtml }} />
-            )}
+            {editing
+              ? preview
+                ? <div className="md-preview border rounded-lg p-5 min-h-75"
+                    style={{ borderColor: "var(--app-border,#e5e7eb)" }}
+                    dangerouslySetInnerHTML={{ __html: renderedEditHtml }} />
+                : <Textarea value={editData.content} onChange={e => setEditData(d => ({ ...d, content: e.target.value }))}
+                    rows={22} className={`${inputCls} font-mono text-[13px] resize-y leading-[1.65]`} />
+              : <div className="md-preview" dangerouslySetInnerHTML={{ __html: renderedHtml }} />
+            }
           </div>
         )}
 
         {loadingNote && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 200, color: "var(--text-3,#9ca3af)", fontSize: 14 }}>
+          <div className="flex items-center justify-center h-50 text-[14px]" style={{ color: "var(--text-3,#9ca3af)" }}>
             加载中...
           </div>
         )}
 
         {!creating && !note && !loadingNote && (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 300, color: "var(--text-3,#9ca3af)", gap: 12 }}>
-            <FileText size={52} strokeWidth={1}/>
-            <div style={{ fontSize: 15 }}>从左侧选择笔记，或上传 .md 文件</div>
-            <div style={{ fontSize: 13 }}>支持 Markdown · 数学公式 · 一键生成闪卡</div>
+          <div className="flex flex-col items-center justify-center h-75 gap-3" style={{ color: "var(--text-3,#9ca3af)" }}>
+            <FileText size={52} strokeWidth={1} />
+            <div className="text-[15px]">从左侧选择笔记，或上传 .md 文件</div>
+            <div className="text-[13px]">支持 Markdown · 数学公式 · 一键生成闪卡</div>
           </div>
         )}
       </div>
