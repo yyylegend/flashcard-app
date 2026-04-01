@@ -8,9 +8,9 @@
   --bg: #fff;
   --border: #e5e4e7;
   --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
+  --accent: #C05C00;
+  --accent-bg: rgba(192, 92, 0, 0.1);
+  --accent-border: rgba(192, 92, 0, 0.5);
   --social-bg: rgba(244, 243, 236, 0.5);
   --shadow:
     rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
@@ -29,8 +29,8 @@
   --text-3:     #9ca3af;
   --card-bg:    #ffffff;
   --text-color: #333333;
-  --accent-soft:#eef2ff;
-  --nav-bg:     #3a3f5c;
+  --accent-soft:#FFF4E6;
+  --nav-bg:     #1E1208;
   --nav-text:   #ffffff;
   --nav-text-muted: rgba(255,255,255,0.7);
   --nav-border: rgba(0,0,0,0.25);
@@ -41,19 +41,19 @@
   /* shadcn/ui semantic variables (light mode) */
   --background: 0 0% 100%;
   --foreground: 222 47% 11%;
-  --primary: 239 84% 67%;
+  --primary: 28 100% 38%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 210 40% 96%;
-  --secondary-foreground: 222 47% 11%;
-  --muted: 210 40% 96%;
-  --muted-foreground: 215 16% 47%;
-  --accent: 210 40% 96%;
-  --accent-foreground: 222 47% 11%;
+  --secondary: 30 20% 96%;
+  --secondary-foreground: 25 30% 15%;
+  --muted: 30 20% 96%;
+  --muted-foreground: 25 10% 47%;
+  --accent: 30 20% 96%;
+  --accent-foreground: 25 30% 15%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
-  --border: 214 32% 91%;
-  --input: 214 32% 91%;
-  --ring: 239 84% 67%;
+  --border: 30 15% 88%;
+  --input: 30 15% 88%;
+  --ring: 28 100% 38%;
   --radius: 0.5rem;
 
   font: 18px/145% var(--sans);
@@ -72,20 +72,20 @@
 }
 
 [data-theme="dark"] {
-  --page-bg:    #2b2b2b;
-  --surface:    #3a3a3a;
-  --surface-2:  #333333;
-  --app-border: #555555;
-  --text-1:     #e8e8e8;
-  --text-2:     #c0c0c0;
-  --text-3:     #909090;
-  --card-bg:    #3a3a3a;
-  --text-color: #e8e8e8;
-  --accent:     #6b82bb;
-  --accent-bg:  rgba(107, 130, 187, 0.15);
-  --accent-border: rgba(107, 130, 187, 0.4);
-  --accent-soft:#353a4a;
-  --nav-bg:     #4f5b93;
+  --page-bg:    #161616;
+  --surface:    #1F1F1F;
+  --surface-2:  #1A1A1A;
+  --app-border: #2E2E2E;
+  --text-1:     #E8E8E8;
+  --text-2:     #B0B0B0;
+  --text-3:     #707070;
+  --card-bg:    #1F1F1F;
+  --text-color: #E8E8E8;
+  --accent:     #D4813A;
+  --accent-bg:  rgba(212, 129, 58, 0.12);
+  --accent-border: rgba(212, 129, 58, 0.35);
+  --accent-soft:#1E1208;
+  --nav-bg:     #0F0F0F;
   --nav-text:   #ffffff;
   --nav-text-muted: rgba(255,255,255,0.7);
   --nav-border: rgba(0,0,0,0.35);
@@ -94,21 +94,21 @@
   --nav-separator: rgba(255,255,255,0.25);
 
   /* shadcn/ui semantic variables (dark mode) */
-  --background: 222 47% 11%;
-  --foreground: 213 31% 95%;
-  --primary: 239 84% 67%;
+  --background: 0 0% 9%;
+  --foreground: 0 0% 91%;
+  --primary: 28 100% 48%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 222 47% 18%;
-  --secondary-foreground: 213 31% 91%;
-  --muted: 222 47% 18%;
-  --muted-foreground: 215 16% 57%;
-  --accent: 222 47% 18%;
-  --accent-foreground: 213 31% 91%;
+  --secondary: 0 0% 13%;
+  --secondary-foreground: 0 0% 85%;
+  --muted: 0 0% 13%;
+  --muted-foreground: 0 0% 44%;
+  --accent: 0 0% 13%;
+  --accent-foreground: 0 0% 85%;
   --destructive: 0 63% 31%;
   --destructive-foreground: 0 0% 100%;
-  --border: 216 34% 30%;
-  --input: 216 34% 30%;
-  --ring: 239 84% 67%;
+  --border: 0 0% 18%;
+  --input: 0 0% 18%;
+  --ring: 28 100% 48%;
 
   color-scheme: dark;
 }
@@ -120,9 +120,9 @@
     --bg: #16171d;
     --border: #2e303a;
     --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
+    --accent: #E08030;
+    --accent-bg: rgba(224, 128, 48, 0.15);
+    --accent-border: rgba(224, 128, 48, 0.5);
     --social-bg: rgba(47, 48, 58, 0.5);
     --shadow:
       rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
@@ -216,10 +216,10 @@ code {
 .md-preview ul, .md-preview ol { padding-left: 1.5em; margin: 0.5em 0; }
 .md-preview li { margin: 0.25em 0; }
 .md-preview blockquote {
-  border-left: 3px solid #6366f1;
+  border-left: 3px solid #C05C00;
   margin: 0.8em 0;
   padding: 6px 16px;
-  background: var(--accent-soft, #f5f3ff);
+  background: var(--accent-soft, #FFF4E6);
   color: var(--text-2, #4b5563);
   border-radius: 0 6px 6px 0;
 }
@@ -243,7 +243,7 @@ code {
 /* 行内代码 */
 .md-preview :not(pre) > code {
   background: var(--surface-2, #f3f4f6);
-  color: #818cf8;
+  color: #C05C00;
   padding: 2px 6px;
   border-radius: 4px;
   font-family: Menlo, Monaco, Consolas, monospace;
@@ -262,7 +262,7 @@ code {
 }
 .md-preview th { background: var(--surface-2, #f9fafb); font-weight: 600; }
 .md-preview hr { border: none; border-top: 1px solid var(--app-border, #e5e7eb); margin: 1.2em 0; }
-.md-preview a { color: #818cf8; text-decoration: none; }
+.md-preview a { color: #C05C00; text-decoration: none; }
 .md-preview a:hover { text-decoration: underline; }
 
 @keyframes spin {
@@ -271,7 +271,7 @@ code {
 
 @keyframes pulse-border {
   0%, 100% { border-color: var(--app-border, #e5e7eb); box-shadow: none; }
-  50% { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.2); }
+  50% { border-color: #C05C00; box-shadow: 0 0 0 3px rgba(192,92,0,0.2); }
 }
 
 /* ── Fill-sweep buttons ── */
@@ -291,12 +291,12 @@ code {
 }
 .btn-fill:hover::before { transform: translateX(0); }
 
-/* 次要按钮：靛蓝填充 */
-.btn-fill-indigo::before  { background: #6366f1; }
-.btn-fill-indigo:hover    { color: #fff !important; border-color: #6366f1 !important; }
+/* 次要按钮：琥珀填充 */
+.btn-fill-indigo::before  { background: #C05C00; }
+.btn-fill-indigo:hover    { color: #fff !important; border-color: #C05C00 !important; }
 
-/* 主按钮：深紫填充 */
-.btn-fill-primary::before { background: #4f46e5; }
+/* 主按钮：深橙填充 */
+.btn-fill-primary::before { background: #A04800; }
 .btn-fill-primary:hover   { color: #fff !important; }
 
 /* 危险按钮：红色填充 */
@@ -306,3 +306,12 @@ code {
 /* 成功按钮：绿色填充 */
 .btn-fill-success::before { background: #16a34a; }
 .btn-fill-success:hover   { color: #fff !important; border-color: #86efac !important; }
+
+/* ── 减少动效偏好 ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

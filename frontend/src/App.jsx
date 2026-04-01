@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { AnimatePresence, motion } from "framer-motion"; // eslint-disable-line no-unused-vars
 import {
   Brain, BookOpen, FileText, Plus, Bot, Download, BookMarked, FlaskConical,
@@ -8,9 +8,36 @@ import {
 import { Toaster, toast } from "react-hot-toast";
 import { Marked } from "marked";
 import { markedHighlight } from "marked-highlight";
-import hljs from "highlight.js";
+import hljs from "highlight.js/lib/core";
+import python from "highlight.js/lib/languages/python";
+import javascript from "highlight.js/lib/languages/javascript";
+import typescript from "highlight.js/lib/languages/typescript";
+import java from "highlight.js/lib/languages/java";
+import cpp from "highlight.js/lib/languages/cpp";
+import go from "highlight.js/lib/languages/go";
+import sql from "highlight.js/lib/languages/sql";
+import bash from "highlight.js/lib/languages/bash";
+import json from "highlight.js/lib/languages/json";
+import xml from "highlight.js/lib/languages/xml";
+import css from "highlight.js/lib/languages/css";
 import "highlight.js/styles/github-dark.css";
-import ReactConfetti from "react-confetti";
+hljs.registerLanguage("python", python);
+hljs.registerLanguage("javascript", javascript);
+hljs.registerLanguage("js", javascript);
+hljs.registerLanguage("typescript", typescript);
+hljs.registerLanguage("ts", typescript);
+hljs.registerLanguage("java", java);
+hljs.registerLanguage("cpp", cpp);
+hljs.registerLanguage("c++", cpp);
+hljs.registerLanguage("go", go);
+hljs.registerLanguage("sql", sql);
+hljs.registerLanguage("bash", bash);
+hljs.registerLanguage("sh", bash);
+hljs.registerLanguage("json", json);
+hljs.registerLanguage("xml", xml);
+hljs.registerLanguage("html", xml);
+hljs.registerLanguage("css", css);
+const ReactConfetti = lazy(() => import("react-confetti"));
 import {
   fetchDecks, createDeck, deleteDeck,
   createCard, updateCard, deleteCard as apiDeleteCard,
@@ -26,19 +53,19 @@ import { ImportModal } from "@/components/modals/ImportModal";
 
 /* ── Category colors ── */
 const CAT_C = {
-  "基础类型":   { border: "#FB923C", text: "#C2410C", badge: "#FFEDD5" },
-  "核心概念":   { border: "#60A5FA", text: "#1D4ED8", badge: "#DBEAFE" },
+  "基础类型":   { border: "#E07820", text: "#C05C00", badge: "#FFF0DC" },
+  "核心概念":   { border: "#D97706", text: "#92400E", badge: "#FEF3C7" },
   "函数":       { border: "#34D399", text: "#047857", badge: "#D1FAE5" },
-  "面向对象":   { border: "#A78BFA", text: "#6D28D9", badge: "#EDE9FE" },
+  "面向对象":   { border: "#F87171", text: "#B91C1C", badge: "#FEE2E2" },
   "并发编程":   { border: "#FBBF24", text: "#B45309", badge: "#FEF9C3" },
-  "高频实战":   { border: "#F472B6", text: "#BE185D", badge: "#FCE7F3" },
+  "高频实战":   { border: "#A3E635", text: "#3F6212", badge: "#ECFCCB" },
 };
 const EX_C = [
+  { border: "#E07820", text: "#C05C00", badge: "#FFF0DC" },
+  { border: "#34D399", text: "#047857", badge: "#D1FAE5" },
   { border: "#F87171", text: "#B91C1C", badge: "#FEE2E2" },
-  { border: "#38BDF8", text: "#0369A1", badge: "#E0F2FE" },
-  { border: "#4ADE80", text: "#15803D", badge: "#DCFCE7" },
-  { border: "#E879F9", text: "#A21CAF", badge: "#FAE8FF" },
-  { border: "#2DD4BF", text: "#0F766E", badge: "#CCFBF1" },
+  { border: "#FBBF24", text: "#B45309", badge: "#FEF9C3" },
+  { border: "#A3E635", text: "#3F6212", badge: "#ECFCCB" },
 ];
 function gc(c) {
   if (CAT_C[c]) return CAT_C[c];
@@ -287,7 +314,7 @@ export default function App() {
   return (
     <div className="min-h-screen font-sans" style={{ background: "var(--page-bg)" }}>
       <Toaster position="top-right" toastOptions={{ style: { fontSize: 14, borderRadius: 10 } }} />
-      {showConfetti && <ReactConfetti width={window.innerWidth} height={window.innerHeight} recycle={false} numberOfPieces={280} />}
+      {showConfetti && <Suspense fallback={null}><ReactConfetti width={window.innerWidth} height={window.innerHeight} recycle={false} numberOfPieces={280} /></Suspense>}
 
       {/* Modals */}
       <AnimatePresence>
@@ -296,16 +323,22 @@ export default function App() {
       <AnimatePresence>
         {dlg && <ConfirmDialog message={dlg.message} onConfirm={() => { dlg.onConfirm(); setDlg(null); }} onCancel={() => setDlg(null)} />}
       </AnimatePresence>
-      {showImp && <ImportModal onClose={() => setShowImp(false)} onImport={impDeck} />}
-      {showCard !== null && (
-        <CardModal
-          onClose={() => setShowCard(null)}
-          onSave={saveCard}
-          categories={cats.length ? cats : ["默认"]}
-          initial={showCard === "add" ? null : showCard}
-        />
-      )}
-      {showAI && <AIGenModal onClose={() => setShowAI(false)} onAdd={addCards} decks={decks} defaultDeckId={dk?.id} />}
+      <AnimatePresence>
+        {showImp && <ImportModal onClose={() => setShowImp(false)} onImport={impDeck} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showCard !== null && (
+          <CardModal
+            onClose={() => setShowCard(null)}
+            onSave={saveCard}
+            categories={cats.length ? cats : ["默认"]}
+            initial={showCard === "add" ? null : showCard}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showAI && <AIGenModal onClose={() => setShowAI(false)} onAdd={addCards} decks={decks} defaultDeckId={dk?.id} />}
+      </AnimatePresence>
 
       {/* ── Navbar ── */}
       <div style={{ background: "var(--nav-bg)", borderBottom: "1px solid var(--nav-border)" }}>
@@ -343,24 +376,24 @@ export default function App() {
                 </button>
               : <>
                 {authed && <>
-                  <button onClick={() => setShowCard("add")} className="btn-fill btn-fill-indigo inline-flex items-center gap-1.5 px-2 py-2 rounded-[10px] border border-dashed border-(--app-border) bg-(--card-bg,#fff) cursor-pointer text-(--text-color,#777) text-[13px]" title="手动添加"><Plus size={15}/></button>
-                  <button onClick={() => setShowAI(true)} className="btn-fill btn-fill-indigo inline-flex items-center gap-1.5 px-2 py-2 rounded-[10px] border border-dashed border-(--app-border) bg-(--card-bg,#fff) cursor-pointer text-(--text-color,#777) text-[13px]" title="AI生成"><Bot size={15}/></button>
-                  <button onClick={() => setShowImp(true)} className="btn-fill btn-fill-indigo inline-flex items-center gap-1.5 px-2 py-2 rounded-[10px] border border-dashed border-(--app-border) bg-(--card-bg,#fff) cursor-pointer text-(--text-color,#777) text-[13px]" title="导入文档"><Download size={15}/></button>
+                  <button onClick={() => setShowCard("add")} aria-label="手动添加卡片" className="btn-fill btn-fill-indigo inline-flex items-center gap-1.5 px-2 py-2 rounded-[10px] border border-dashed border-(--app-border) bg-(--card-bg,#fff) cursor-pointer text-(--text-color,#777) text-[13px]"><Plus size={15} aria-hidden="true"/></button>
+                  <button onClick={() => setShowAI(true)} aria-label="AI生成卡片" className="btn-fill btn-fill-indigo inline-flex items-center gap-1.5 px-2 py-2 rounded-[10px] border border-dashed border-(--app-border) bg-(--card-bg,#fff) cursor-pointer text-(--text-color,#777) text-[13px]"><Bot size={15} aria-hidden="true"/></button>
+                  <button onClick={() => setShowImp(true)} aria-label="导入文档" className="btn-fill btn-fill-indigo inline-flex items-center gap-1.5 px-2 py-2 rounded-[10px] border border-dashed border-(--app-border) bg-(--card-bg,#fff) cursor-pointer text-(--text-color,#777) text-[13px]"><Download size={15} aria-hidden="true"/></button>
                 </>}
                 <button onClick={() => setMode(2)} className="btn-fill btn-fill-indigo inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] border border-(--app-border) bg-(--card-bg,#fff) cursor-pointer text-(--text-color,#777) text-[13px]">
                   <BookMarked size={15}/>{wrongs > 0 ? ` ${wrongs}` : ""}
                 </button>
-                <button onClick={startQ} className="btn-fill btn-fill-primary inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] border-0 font-semibold cursor-pointer text-white text-[13px] shadow-[0_2px_8px_rgba(99,102,241,.3)]" style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)" }}>
+                <button onClick={startQ} className="btn-fill btn-fill-primary inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] border-0 font-semibold cursor-pointer text-white text-[13px] shadow-[0_2px_8px_rgba(192,92,0,.3)]" style={{ background: "linear-gradient(135deg,#C05C00,#E07820)" }}>
                   <FlaskConical size={14}/> 测试
                 </button>
               </>)
             }
             {/* Theme toggle */}
             <button onClick={() => setDarkMode(d => !d)}
+              aria-label={darkMode ? "切换浅色模式" : "切换深色模式"}
               className="inline-flex items-center ml-1 p-2 rounded-lg border-0 bg-transparent cursor-pointer transition-opacity hover:opacity-100"
-              style={{ color: "var(--nav-text-muted)" }}
-              title={darkMode ? "切换浅色" : "切换深色"}>
-              {darkMode ? <Sun size={17}/> : <Moon size={17}/>}
+              style={{ color: "var(--nav-text-muted)" }}>
+              {darkMode ? <Sun size={17} aria-hidden="true"/> : <Moon size={17} aria-hidden="true"/>}
             </button>
             {/* Auth */}
             {authed
@@ -408,18 +441,22 @@ export default function App() {
                   <div className="text-[11px] font-bold tracking-[0.08em] uppercase mb-2" style={{ color: "var(--text-3,#aaa)" }}>题库</div>
                   {decks.map((d, i) => (
                     <div key={d.id} onClick={() => sw(i)}
-                      className="flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] text-[13px] cursor-pointer mb-0.5 transition-all duration-150 hover:-translate-y-px hover:shadow-sm"
+                      className="flex items-center gap-1.5 pl-3 pr-2 py-1.5 rounded-[7px] text-[13px] cursor-pointer mb-0.5 relative transition-colors duration-150 hover:bg-[rgba(192,92,0,0.06)]"
                       style={{
-                        background: i === di ? "#6366f1" : "transparent",
-                        color: i === di ? "#fff" : "var(--text-2,#555)",
+                        color: i === di ? "#C05C00" : "var(--text-2,#555)",
                         fontWeight: i === di ? 600 : 400,
                       }}>
-                      <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{d.name}</span>
-                      <span className="text-[11px] opacity-60">{d.cards.length}</span>
-                      {i > 0 && (
-                        <span onClick={e => { e.stopPropagation(); setDlg({ message: `删除「${d.name}」？`, onConfirm: () => rmDeck(i) }); }}
-                          className="text-[13px] opacity-50 cursor-pointer ml-0.5 hover:opacity-100">×</span>
+                      {i === di && (
+                        <span className="absolute left-0 top-1 bottom-1 w-0.75 rounded-full bg-[#C05C00]" />
                       )}
+                      <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{d.name}</span>
+                      <span className="text-[11px] opacity-60 w-6 text-right shrink-0">{d.cards.length}</span>
+                      <span className="w-4 shrink-0 flex items-center justify-center">
+                        {i > 0 && (
+                          <span onClick={e => { e.stopPropagation(); setDlg({ message: `删除「${d.name}」？`, onConfirm: () => rmDeck(i) }); }}
+                            className="text-[13px] opacity-50 cursor-pointer hover:opacity-100">×</span>
+                        )}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -434,12 +471,12 @@ export default function App() {
                     const active = cat === c;
                     return (
                       <div key={c} onClick={() => { setCat(c); setIdx(0); setShow(false); }}
-                        className="flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] text-[13px] cursor-pointer mb-0.5 transition-all duration-150 hover:-translate-y-px hover:shadow-sm"
+                        className="flex items-center gap-1.5 pl-3 pr-2 py-1.5 rounded-[7px] text-[13px] cursor-pointer mb-0.5 relative transition-colors duration-150 hover:bg-[rgba(192,92,0,0.06)]"
                         style={{
-                          background: active ? "#6366f1" : "transparent",
-                          color: active ? "#fff" : "var(--text-2,#555)",
+                          color: active ? "#C05C00" : "var(--text-2,#555)",
                           fontWeight: active ? 600 : 400,
                         }}>
+                        {active && <span className="absolute left-0 top-1 bottom-1 w-0.75 rounded-full bg-[#C05C00]" />}
                         <span className="flex-1">{c}</span>
                         <span className="text-[11px] opacity-60">{count}</span>
                       </div>
@@ -459,7 +496,7 @@ export default function App() {
                       let bg = "#f3f4f6", color = "#888";
                       if (s === "ok") { bg = "#d1fae5"; color = "#065f46"; }
                       else if (s === "fail") { bg = "#fee2e2"; color = "#991b1b"; }
-                      if (isCur) { bg = "#6366f1"; color = "#fff"; }
+                      if (isCur) { bg = "#C05C00"; color = "#fff"; }
                       return (
                         <button key={c.id} onClick={() => { setIdx(i); setShow(false); }} title={c.q}
                           className="w-7 h-7 rounded-[6px] border-0 text-[11px] font-semibold cursor-pointer flex items-center justify-center transition-transform duration-100 hover:scale-110 hover:z-10"
@@ -470,8 +507,8 @@ export default function App() {
                     })}
                   </div>
                   <div className="mt-2 flex flex-col gap-[3px]">
-                    {[{ bg: "#d1fae5", label: "已掌握" }, { bg: "#fee2e2", label: "需复习" }, { bg: "#6366f1", label: "当前" }].map(({ bg, label }) => (
-                      <div key={label} className="flex items-center gap-[5px] text-[11px] text-[#888]">
+                    {[{ bg: "#d1fae5", label: "已掌握" }, { bg: "#fee2e2", label: "需复习" }, { bg: "#C05C00", label: "当前" }].map(({ bg, label }) => (
+                      <div key={label} className="flex items-center gap-[5px] text-[11px]" style={{ color: "var(--text-3,#888)" }}>
                         <span className="w-2.5 h-2.5 rounded-[3px] inline-block" style={{ background: bg }} />{label}
                       </div>
                     ))}
@@ -487,7 +524,7 @@ export default function App() {
                     {ws.map((c, i) => (
                       <button key={c.id} onClick={() => setWIdx(i)} title={c.q}
                         className="w-7 h-7 rounded-[6px] border-0 text-[11px] font-semibold cursor-pointer flex items-center justify-center"
-                        style={{ background: i === wIdx ? "#6366f1" : "#fee2e2", color: i === wIdx ? "#fff" : "#991b1b" }}>
+                        style={{ background: i === wIdx ? "#C05C00" : "#fee2e2", color: i === wIdx ? "#fff" : "#991b1b" }}>
                         {i + 1}
                       </button>
                     ))}
@@ -499,7 +536,7 @@ export default function App() {
               {mode === 0 && (
                 <button onClick={() => { setDlg({ message: "重置所有成绩？（不会删除卡片）", onConfirm: resetData }); }}
                   className="bg-transparent border-0 text-[11px] cursor-pointer text-left py-1 hover:text-[var(--text-2)]"
-                  style={{ color: "#ccc" }}>
+                  style={{ color: "var(--text-3,#aaa)" }}>
                   重置成绩
                 </button>
               )}
@@ -562,9 +599,9 @@ export default function App() {
                 {mode !== 2 && (
                   <>
                     <div className="h-1.5 rounded-full overflow-hidden mb-1" style={{ background: "var(--app-border,#e5e7eb)" }}>
-                      <div className="h-full rounded-full" style={{ background: "linear-gradient(90deg,#6366f1,#8b5cf6)", width: `${pct}%`, transition: "width 0.4s cubic-bezier(0.4,0,0.2,1)" }} />
+                      <div className="h-full rounded-full" style={{ background: "linear-gradient(90deg,#C05C00,#E07820)", width: `${pct}%`, transition: "width 0.4s cubic-bezier(0.4,0,0.2,1)" }} />
                     </div>
-                    <div className="text-[12px] text-right mb-3.5" style={{ color: "#ccc" }}>
+                    <div className="text-[12px] text-right mb-3.5" style={{ color: "var(--text-3,#aaa)" }}>
                       {mode === 1 ? `${stats.ok + stats.fail}/${stats.total}` : `${cards.length ? idx + 1 : 0}/${cards.length}`}
                     </div>
                   </>
@@ -575,8 +612,8 @@ export default function App() {
                   ? <div className="text-center p-10 rounded-[14px] shadow-[0_1px_4px_rgba(0,0,0,.06)]" style={{ background: "var(--card-bg,#fff)" }}>
                       <p style={{ color: "var(--text-3,#999)" }}>暂无题目</p>
                       <button onClick={() => setShowCard("add")}
-                        className="btn-fill btn-fill-primary inline-flex items-center gap-1.5 px-3.5 py-2 mt-3 rounded-[10px] border-0 font-semibold cursor-pointer text-white text-[13px] shadow-[0_2px_8px_rgba(99,102,241,.3)]"
-                        style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)" }}>
+                        className="btn-fill btn-fill-primary inline-flex items-center gap-1.5 px-3.5 py-2 mt-3 rounded-[10px] border-0 font-semibold cursor-pointer text-white text-[13px] shadow-[0_2px_8px_rgba(192,92,0,.3)]"
+                        style={{ background: "linear-gradient(135deg,#C05C00,#E07820)" }}>
                         ➕ 添加第一张卡片
                       </button>
                     </div>
@@ -588,18 +625,18 @@ export default function App() {
                         <h2 className="text-[20px] font-bold mb-5" style={{ color: "var(--text-color,#111)" }}>测试完成！</h2>
                         <div className="flex justify-center gap-8 mb-6">
                           <div><div className="text-[30px] font-extrabold text-emerald-500">{stats.ok}</div><div className="text-[13px]" style={{ color: "var(--text-3,#999)" }}>掌握</div></div>
-                          <div className="w-px h-10 bg-[#e5e7eb]" />
+                          <div className="w-px h-10" style={{ background: "var(--app-border,#e5e7eb)" }} />
                           <div><div className="text-[30px] font-extrabold text-red-500">{stats.fail}</div><div className="text-[13px]" style={{ color: "var(--text-3,#999)" }}>复习</div></div>
-                          <div className="w-px h-10 bg-[#e5e7eb]" />
-                          <div><div className="text-[30px] font-extrabold text-indigo-500">{stats.total ? Math.round(stats.ok / stats.total * 100) : 0}%</div><div className="text-[13px]" style={{ color: "var(--text-3,#999)" }}>正确率</div></div>
+                          <div className="w-px h-10" style={{ background: "var(--app-border,#e5e7eb)" }} />
+                          <div><div className="text-[30px] font-extrabold" style={{ color: "#C05C00" }}>{stats.total ? Math.round(stats.ok / stats.total * 100) : 0}%</div><div className="text-[13px]" style={{ color: "var(--text-3,#999)" }}>正确率</div></div>
                         </div>
                         <div className="flex gap-2 justify-center">
-                          <button onClick={startQ} className="btn-fill btn-fill-primary inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] border-0 font-semibold cursor-pointer text-white text-[13px] shadow-[0_2px_8px_rgba(99,102,241,.3)]" style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)" }}>再来一轮</button>
+                          <button onClick={startQ} className="btn-fill btn-fill-primary inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] border-0 font-semibold cursor-pointer text-white text-[13px] shadow-[0_2px_8px_rgba(192,92,0,.3)]" style={{ background: "linear-gradient(135deg,#C05C00,#E07820)" }}>再来一轮</button>
                           <button onClick={() => setMode(2)} className="btn-fill btn-fill-indigo inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] border border-(--app-border) bg-(--card-bg,#fff) cursor-pointer text-(--text-color,#777) text-[13px]">查看错题</button>
                         </div>
                       </div>
                     : card
-                      ? <div className="rounded-[14px] p-6 shadow-[0_1px_4px_rgba(0,0,0,.06)]" style={{ background: "var(--surface,#fff)", borderLeft: `4px solid ${cc.border}` }}>
+                      ? <div className="rounded-[14px] p-6 shadow-[0_1px_4px_rgba(0,0,0,.06)]" style={{ background: "var(--surface,#fff)" }}>
                           <div className="flex justify-between items-center">
                             <span className="inline-block px-2.5 py-[3px] rounded-[10px] text-[12px] font-semibold"
                               style={{ background: cc.badge, color: cc.text }}>
@@ -607,17 +644,21 @@ export default function App() {
                             </span>
                             <div className="flex gap-2 items-center">
                               {mode === 0 && authed && <>
-                                <button onClick={() => setShowCard(card)} className="bg-transparent border-0 cursor-pointer p-0.5 inline-flex hover:opacity-80" style={{ color: "var(--text-3,#aaa)" }} title="编辑"><Pencil size={14}/></button>
-                                <button onClick={() => { setDlg({ message: "删除这张卡片？", onConfirm: () => handleDeleteCard(card.id) }); }} className="bg-transparent border-0 cursor-pointer p-0.5 inline-flex hover:opacity-80" style={{ color: "var(--text-3,#aaa)" }} title="删除"><Trash2 size={14}/></button>
+                                <button onClick={() => setShowCard(card)} aria-label="编辑卡片" className="bg-transparent border-0 cursor-pointer p-1.5 inline-flex hover:opacity-80" style={{ color: "var(--text-3,#aaa)" }}><Pencil size={14} aria-hidden="true"/></button>
+                                <button onClick={() => { setDlg({ message: "删除这张卡片？", onConfirm: () => handleDeleteCard(card.id) }); }} aria-label="删除卡片" className="bg-transparent border-0 cursor-pointer p-1.5 inline-flex hover:opacity-80" style={{ color: "var(--text-3,#aaa)" }}><Trash2 size={14} aria-hidden="true"/></button>
                               </>}
-                              <span className="text-[13px] font-semibold text-[#ddd]">#{idx + 1}</span>
+                              <span className="text-[13px] font-semibold" style={{ color: "var(--text-3,#aaa)" }}>#{idx + 1}</span>
                             </div>
                           </div>
+                          <AnimatePresence mode="wait" initial={false}>
+                          <motion.div key={card.id}
+                            initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }}
+                            transition={{ duration: 0.18, ease: [0.25, 1, 0.5, 1] }}>
                           <div className="text-[17px] font-bold leading-[1.5] my-3.5" style={{ color: "var(--text-1,#111)" }}>{card.q}</div>
                           <AnimatePresence mode="wait">
                             {!show
                               ? <motion.button key="show-btn" onClick={() => setShow(true)}
-                                  className="w-full p-3.5 rounded-[12px] text-[15px] cursor-pointer font-semibold flex items-center justify-center gap-1.5 hover:border-indigo-300 hover:text-indigo-500"
+                                  className="w-full p-3.5 rounded-[12px] text-[15px] cursor-pointer font-semibold flex items-center justify-center gap-1.5 hover:border-orange-400 hover:text-orange-700"
                                   style={{ background: "var(--surface-2,#f9fafb)", border: "2px dashed var(--app-border,#e5e7eb)", color: "var(--text-3,#888)", animation: "pulse-border 1.8s ease-in-out infinite" }}
                                   initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
                                   <Eye size={15}/> 查看答案
@@ -651,6 +692,8 @@ export default function App() {
                                 </motion.div>
                             }
                           </AnimatePresence>
+                          </motion.div>
+                          </AnimatePresence>
                         </div>
                       : null
                 )}
@@ -659,7 +702,7 @@ export default function App() {
                 {mode === 1 && !done && (
                   <div className="text-center mt-3.5 text-[15px] font-semibold">
                     <span className="text-emerald-500">✓ {stats.ok}</span>
-                    <span className="mx-2.5 text-[#ccc]">|</span>
+                    <span className="mx-2.5" style={{ color: "var(--text-3,#aaa)" }}>|</span>
                     <span className="text-red-500">✗ {stats.fail}</span>
                   </div>
                 )}

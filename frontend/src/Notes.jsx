@@ -77,7 +77,7 @@ function ConfirmDlg({ message, onConfirm, onCancel }) {
 
 function TagBadge({ tag }) {
   return (
-    <span className="bg-[#eef2ff] text-indigo-600 rounded-[20px] px-2.5 py-0.5 text-[12px] font-medium">
+    <span className="bg-[#FFF0DC] text-orange-800 rounded-[20px] px-2.5 py-0.5 text-[12px] font-medium">
       #{tag.trim()}
     </span>
   );
@@ -94,9 +94,9 @@ function TocPanel({ headings, activeSlug }) {
           onClick={() => document.getElementById(h.slug)?.scrollIntoView({ behavior: "smooth", block: "start" })}
           className="px-2 py-1.25 text-[12px] leading-[1.45] cursor-pointer rounded-[5px] mb-0.5 break-all transition-colors"
           style={{
-            color: activeSlug === h.slug ? "#6366f1" : "var(--text-2,#555)",
+            color: activeSlug === h.slug ? "#C05C00" : "var(--text-2,#555)",
             fontWeight: activeSlug === h.slug ? 600 : 400,
-            background: activeSlug === h.slug ? "var(--accent-soft,#eef2ff)" : "transparent",
+            background: activeSlug === h.slug ? "var(--accent-soft,#FFF4E6)" : "transparent",
           }}>
           {h.text}
         </div>
@@ -266,8 +266,8 @@ export default function NotesView({ authed, authUser, onImportCards }) {
         style={{ background: "var(--surface,#fff)", borderColor: "var(--app-border,#e5e7eb)" }}>
         <div className="flex gap-1.5 mb-1">
           <button onClick={startCreate}
-            className="btn-fill btn-fill-primary flex-1 inline-flex items-center justify-center gap-1.5 py-1.75 px-2 rounded-lg border-0 text-[12px] font-semibold cursor-pointer text-white shadow-[0_2px_8px_rgba(99,102,241,.25)]"
-            style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)" }}>
+            className="btn-fill btn-fill-primary flex-1 inline-flex items-center justify-center gap-1.5 py-1.75 px-2 rounded-lg border-0 text-[12px] font-semibold cursor-pointer text-white shadow-[0_2px_8px_rgba(192,92,0,.25)]"
+            style={{ background: "linear-gradient(135deg,#C05C00,#E07820)" }}>
             <FilePlus size={13} /> 新建
           </button>
           <label className="inline-flex items-center justify-center gap-1.5 py-[7px] px-2.5 rounded-lg border text-[12px] font-medium cursor-pointer"
@@ -283,14 +283,14 @@ export default function NotesView({ authed, authUser, onImportCards }) {
             <div key={n.id} onClick={() => openNote(n.id)}
               className="px-3 py-2.5 rounded-xl cursor-pointer border transition-colors"
               style={{
-                background: selected === n.id ? "var(--accent-soft,#eef2ff)" : "var(--surface-2,#f9fafb)",
-                borderColor: selected === n.id ? "#a5b4fc" : "var(--app-border,#f3f4f6)",
+                background: selected === n.id ? "var(--accent-soft,#FFF4E6)" : "var(--surface-2,#f9fafb)",
+                borderColor: selected === n.id ? "var(--accent,#C05C00)" : "var(--app-border,#f3f4f6)",
               }}>
               <div className="font-semibold text-[13px] whitespace-nowrap overflow-hidden text-ellipsis mb-0.5"
                 style={{ color: "var(--text-1,#111)" }}>{n.title}</div>
               <div className="text-[11px]" style={{ color: "var(--text-3,#9ca3af)" }}>{n.uploaded_by} · {fmtDate(n.created_at)}</div>
               {n.tags && (
-                <div className="text-[11px] text-indigo-500 mt-0.75 whitespace-nowrap overflow-hidden text-ellipsis">
+                <div className="text-[11px] text-orange-700 mt-0.75 whitespace-nowrap overflow-hidden text-ellipsis">
                   {n.tags.split(",").filter(t => t.trim()).map(t => `#${t.trim()}`).join(" ")}
                 </div>
               )}
@@ -332,7 +332,7 @@ export default function NotesView({ authed, authUser, onImportCards }) {
             <div className="flex gap-2">
               <button onClick={saveCreate} disabled={!editData.title.trim()}
                 className="btn-fill btn-fill-primary px-4 py-1.5 rounded-lg border-0 text-[13px] font-semibold cursor-pointer text-white disabled:opacity-50"
-                style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)" }}>保存</button>
+                style={{ background: "linear-gradient(135deg,#C05C00,#E07820)" }}>保存</button>
               <button onClick={() => setCreating(false)}
                 className="btn-fill btn-fill-indigo px-4 py-1.5 rounded-lg border text-[13px] font-medium cursor-pointer"
                 style={{ background: "var(--surface,#fff)", color: "var(--text-2,#374151)", borderColor: "var(--app-border,#e5e7eb)" }}>取消</button>
@@ -352,15 +352,15 @@ export default function NotesView({ authed, authUser, onImportCards }) {
                   : <h2 className="m-0 text-[20px] font-extrabold wrap-break-word" style={{ color: "var(--text-1,#111)" }}>{note.title}</h2>
                 }
                 <div className="text-[12px] mt-1.25" style={{ color: "var(--text-3,#9ca3af)" }}>
-                  上传者: <span className="text-indigo-500 font-semibold">{note.uploaded_by}</span>
+                  上传者: <span className="text-orange-700 font-semibold">{note.uploaded_by}</span>
                   &nbsp;· {fmtDate(note.created_at)}
                 </div>
               </div>
               <div className="flex gap-1.5 shrink-0 flex-wrap justify-end">
                 {!editing && <>
                   <button onClick={generateCards} disabled={genLoading}
-                    className="btn-fill btn-fill-indigo inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[13px] font-medium cursor-pointer disabled:opacity-60 text-indigo-500"
-                    style={{ background: "var(--surface,#fff)", borderColor: "#6366f1" }}>
+                    className="btn-fill btn-fill-indigo inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[13px] font-medium cursor-pointer disabled:opacity-60 text-orange-700"
+                    style={{ background: "var(--surface,#fff)", borderColor: "#C05C00" }}>
                     {genLoading ? <><Loader2 size={13} className="animate-spin" /> 生成中...</> : <><Sparkles size={13} /> 生成闪卡</>}
                   </button>
                   {note.uploaded_by === authUser && <>
@@ -383,7 +383,7 @@ export default function NotesView({ authed, authUser, onImportCards }) {
                   </button>
                   <button onClick={saveEdit}
                     className="btn-fill btn-fill-primary px-4 py-1.5 rounded-lg border-0 text-[13px] font-semibold cursor-pointer text-white"
-                    style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)" }}>保存</button>
+                    style={{ background: "linear-gradient(135deg,#C05C00,#E07820)" }}>保存</button>
                   <button onClick={() => setEditing(false)}
                     className="btn-fill btn-fill-indigo px-3 py-1.5 rounded-lg border text-[13px] font-medium cursor-pointer"
                     style={{ background: "var(--surface,#fff)", color: "var(--text-2,#374151)", borderColor: "var(--app-border,#e5e7eb)" }}>取消</button>
@@ -406,9 +406,9 @@ export default function NotesView({ authed, authUser, onImportCards }) {
             {genMsg && (
               <div className="mb-3.5 px-3.5 py-2.5 rounded-lg text-[13px]"
                 style={{
-                  background: genMsg.startsWith("✅") ? "#f0fdf4" : genMsg.startsWith("🤖") ? "#eff6ff" : "#fef2f2",
-                  border: `1px solid ${genMsg.startsWith("✅") ? "#bbf7d0" : genMsg.startsWith("🤖") ? "#bfdbfe" : "#fecaca"}`,
-                  color: genMsg.startsWith("✅") ? "#065f46" : genMsg.startsWith("🤖") ? "#1d4ed8" : "#b91c1c",
+                  background: genMsg.startsWith("✅") ? "#f0fdf4" : genMsg.startsWith("🤖") ? "var(--accent-soft,#FFF4E6)" : "#fef2f2",
+                  border: `1px solid ${genMsg.startsWith("✅") ? "#bbf7d0" : genMsg.startsWith("🤖") ? "var(--accent-border,rgba(192,92,0,0.5))" : "#fecaca"}`,
+                  color: genMsg.startsWith("✅") ? "#065f46" : genMsg.startsWith("🤖") ? "var(--accent,#C05C00)" : "#b91c1c",
                 }}>
                 {genMsg}
               </div>
