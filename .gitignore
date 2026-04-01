@@ -34,6 +34,7 @@ Thumbs.db
 
 # Claude Code
 .claude/
+.impeccable.md
 
 # Scripts (local only)
 scripts/
